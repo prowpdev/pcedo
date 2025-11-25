@@ -1,0 +1,117 @@
+{% extends 'files/base.html' %}
+
+{% block content %}
+<h2>{% if file %}Edit{% else %}Create{% endif %} Spreadsheet</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+</form>
+
+<div id="tabulator-table"></div>
+
+<button id="save-btn" style="margin-top:10px;">Save Spreadsheet</button>
+
+<!-- Tabulator -->
+<link href="https://unpkg.com/tabulator-tables@5.5.1/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@5.5.1/dist/js/tabulator.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const initialData = JSON.parse('{{ data_json|escapejs }}');
+
+    // Initialize columns with Delete Row first
+    let columns = [
+        { 
+            title: "Delete", 
+            formatter: "buttonCross", 
+            width: 70, 
+            align: "center", 
+            cellClick: (e, cell) => cell.getRow().delete() 
+        }
+    ];
+
+    // Add initial columns from data
+    initialData.columns.forEach(col => {
+        columns.push({ title: col, field: col, editor: "input" });
+    });
+
+    // Initialize Tabulator
+    const table = new Tabulator("#tabulator-table", {
+        data: initialData.rows,
+        columns: columns,
+        layout: window.innerWidth <= 768 ? "fitDataStretch" : "fitColumns",
+        reactiveData: true,
+    });
+
+    // Add Column button
+    const addColBtn = document.createElement('button');
+    addColBtn.textContent = "Add Column";
+    addColBtn.style.marginTop = "10px";
+    addColBtn.style.marginLeft = "10px";
+    addColBtn.addEventListener('click', () => {
+        const colName = prompt("Enter column name:");
+        if (colName) {
+            table.addColumn({ title: colName, field: colName, editor: "input" });
+            initialData.columns.push(colName); // update JSON columns
+        }
+    });
+    document.getElementById('tabulator-table').after(addColBtn);
+
+    // Delete Column button
+    const delColBtn = document.createElement('button');
+    delColBtn.textContent = "Delete Column";
+    delColBtn.style.marginTop = "10px";
+    delColBtn.style.marginLeft = "10px";
+    delColBtn.addEventListener('click', () => {
+        const colName = prompt("Enter the column name to delete:");
+        if (!colName) return;
+        
+        const col = table.getColumn(colName);
+        if (col) {
+            if (confirm(`Are you sure you want to delete column "${colName}"? This will remove all data in this column.`)) {
+                table.deleteColumn(colName);
+                // Remove from initialData.columns array
+                const index = initialData.columns.indexOf(colName);
+                if (index > -1) initialData.columns.splice(index, 1);
+            }
+        } else {
+            alert(`Column "${colName}" not found.`);
+        }
+    });
+    addColBtn.after(delColBtn);
+
+    // Add Row button
+    const addRowBtn = document.createElement('button');
+    addRowBtn.textContent = "Add Row";
+    addRowBtn.style.marginTop = "10px";
+    addRowBtn.style.marginLeft = "10px";
+    addRowBtn.addEventListener('click', () => {
+        let numRows = parseInt(prompt("How many rows to add?", "1"));
+        if (!isNaN(numRows) && numRows > 0) {
+            for (let i = 0; i < numRows; i++) {
+                table.addRow({});
+            }
+        }
+    });
+    delColBtn.after(addRowBtn);
+
+    // Save button
+    document.getElementById('save-btn').addEventListener('click', () => {
+        const rows = table.getData();
+        const dataToSave = {
+            columns: initialData.columns,
+            rows: rows
+        };
+        fetch("{% url 'save_file_data' file.pk %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: "tableData=" + encodeURIComponent(JSON.stringify(dataToSave))
+        }).then(res => res.json()).then(data => alert("Saved!"));
+    });
+});
+</script>
+{% endblock %}
