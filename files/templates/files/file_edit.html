@@ -1,143 +1,237 @@
 {% extends 'files/base.html' %}
 
 {% block content %}
-<h2>{% if file %}Edit{% else %}Create{% endif %} Spreadsheet</h2>
+<h2 class=""> {% if file %}Edit{% else %}Create{% endif %} Spreadsheet</h2>
 
-<form method="post">
+<form method="post" style="margin-bottom:12px;">
     {% csrf_token %}
     {{ form.as_p }}
 </form>
 
-<div id="tabulator-table"></div>
-
-<button id="save-btn" style="margin-top:10px;">Save Spreadsheet</button>
-
-<!-- Pass JSON data safely -->
-<div id="data-json" style="display:none;">
-    {{ data_json|safe }}
+<!-- Controls: Global search, actions -->
+<div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+    <input type="text" id="global-search" placeholder="Search..." style="width:280px; padding:6px;">
+    <button id="add-row-btn" class="btn">Add Row</button>
+    <button id="add-col-btn" class="btn">Add Column</button>
+    <button id="toggle-freeze-btn" class="btn">Toggle Freeze First Column</button>
+    <button id="export-csv-btn" class="btn">Export CSV</button>
+    <button id="export-xlsx-btn" class="btn">Export Excel</button>
+    <button id="save-btn" class="btn" style="margin-left:auto;">Save Spreadsheet</button>
 </div>
 
-<!-- Tabulator CSS & JS -->
+<!-- Table container -->
+<div id="tabulator-table"></div>
+
+<!-- Hidden JSON data -->
+<div id="data-json" style="display:none;">{{ data_json|safe }}</div>
+
+<!-- Tabulator CSS & JS + XLSX for Excel export -->
 <link href="https://unpkg.com/tabulator-tables@5.5.1/dist/css/tabulator.min.css" rel="stylesheet">
 <script src="https://unpkg.com/tabulator-tables@5.5.1/dist/js/tabulator.min.js"></script>
 
+<style>
+/* Minor local styling for buttons and layout */
+.btn{
+    padding:6px 10px;
+    background:#1e90ff;
+    color:#fff;
+    border:0;
+    border-radius:4px;
+    cursor:pointer;
+}
+.btn:hover{ opacity:0.9; }
+#tabulator-table {
+    margin-top: 8px;
+}
+
+/* Optional: make Tabulator look slightly nicer */
+.tabulator {
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Sticky header appearance (Tabulator handles stickiness when height is set) */
+.tabulator .tabulator-header {
+    z-index: 3;
+}
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Parse initial data
+    // Load initial data
     let initialData = {};
     try {
         initialData = JSON.parse(document.getElementById('data-json').textContent);
     } catch(e){
         initialData = {columns: [], rows: []};
     }
-
     initialData.columns = initialData.columns || [];
     initialData.rows = initialData.rows || [];
 
-    const parentColumns = {{ parent_columns|safe }}; // parent column names
-    const parentColumnValues = {{ parent_column_values|safe }}; // {column_name: [values]}
+    // Parent mapping context from server
+    const parentColumns = {{ parent_columns|safe }};
+    const parentColumnValues = {{ parent_column_values|safe }};
 
-    // Build Tabulator columns
-    let columns = [
-        { title: "Delete", formatter: "buttonCross", width: 70, align: "center",
-          cellClick: (e, cell) => cell.getRow().delete() }
-    ];
+    // Flag for freeze state
+    let firstColFrozen = true; // we'll freeze delete column initially
 
-    initialData.columns.forEach(colObj => {
-        const colName = colObj.name;
-        const mapping = colObj.mapping;
+    // Build Tabulator column definitions
+    function buildColumns() {
+        const cols = [];
 
-        let editor = "input";
-        let editorParams = {};
-        if(mapping !== "custom" && parentColumnValues[mapping]){
-            editor = "select";
-            editorParams = { values: parentColumnValues[mapping] };
-        }
-
-        columns.push({
-            title: `${colName} (${mapping})`,
-            field: colName,
-            editor: editor,
-            editorParams: editorParams,
-            headerSort: false,
-            titleFormatter: function(){
-                const colDiv = document.createElement("div");
-                colDiv.style.display="flex";
-                colDiv.style.alignItems="center";
-                colDiv.style.justifyContent="space-between";
-
-                const titleSpan = document.createElement("span");
-                titleSpan.textContent = `${colName} (${mapping})`;
-
-                const delBtn = document.createElement("button");
-                delBtn.textContent="×";
-                delBtn.style.marginLeft="5px";
-                delBtn.style.cursor="pointer";
-                delBtn.addEventListener("click", ()=>{
-                    if(confirm(`Delete column "${colName}"?`)){
-                        table.deleteColumn(colName);
-                        const idx = initialData.columns.findIndex(c => c.name === colName);
-                        if(idx > -1) initialData.columns.splice(idx,1);
-                    }
-                });
-
-                colDiv.appendChild(titleSpan);
-                colDiv.appendChild(delBtn);
-                return colDiv;
-            }
+        // First column: Delete (frozen)
+        cols.push({
+            title: "Action",
+            formatter: "buttonCross",
+            width: 70,
+            hozAlign: "center",
+            frozen: firstColFrozen,
+            cellClick: (e, cell) => cell.getRow().delete()
         });
-    });
 
-    const table = new Tabulator("#tabulator-table", {
+        // For each column object (name + mapping)
+        initialData.columns.forEach(colObj => {
+            const colName = colObj.name;
+            const mapping = colObj.mapping || "custom";
+
+            // default editor: input
+            let editor = "input";
+            let editorParams = {};
+            if(mapping !== "custom" && parentColumnValues[mapping]){
+                // use select editor with values from parent column
+                editor = "select";
+                // Tabulator accepts array or object for select options
+                editorParams = { values: parentColumnValues[mapping] };
+            }
+
+            cols.push({
+                title: `${colName} (${mapping})`,
+                field: colName,
+                editor: editor,
+                editorParams: editorParams,
+                headerSort: true,      // allow sorting on column
+                hozAlign: "left",
+                headerHozAlign: "left",
+                resizable: true,       // allow resizing this column
+                // titleFormatter: custom header with delete button
+                titleFormatter: function() {
+                    const wrapper = document.createElement("div");
+                    wrapper.style.display = "flex";
+                    wrapper.style.alignItems = "center";
+                    wrapper.style.justifyContent = "space-between";
+                    wrapper.style.gap = "6px";
+
+                    const titleSpan = document.createElement("span");
+                    titleSpan.textContent = `${colName} (${mapping})`;
+                    titleSpan.style.fontWeight = "600";
+
+                    const delBtn = document.createElement("button");
+                    delBtn.textContent = "×";
+                    delBtn.style.marginLeft = "6px";
+                    delBtn.style.cursor = "pointer";
+                    delBtn.style.padding = "2px 6px";
+                    delBtn.style.border = "none";
+                    delBtn.style.borderRadius = "4px";
+                    delBtn.style.background = "#e53935";
+                    delBtn.style.color = "#fff";
+                    delBtn.title = "Delete column";
+
+                    delBtn.addEventListener("click", () => {
+                        if (!confirm(`Delete column "${colName}"?`)) return;
+                        // remove from initialData.columns
+                        const idx = initialData.columns.findIndex(c => c.name === colName);
+                        if (idx > -1) initialData.columns.splice(idx, 1);
+                        // rebuild table columns
+                        rebuildTable();
+                    });
+
+                    wrapper.appendChild(titleSpan);
+                    wrapper.appendChild(delBtn);
+                    return wrapper;
+                }
+            });
+        });
+
+        return cols;
+    }
+
+    // Tabulator options: enable movable columns (reorder), resizable columns, set height to make header sticky
+    const tableOptions = {
         data: initialData.rows,
-        columns: columns,
+        columns: buildColumns(),
         layout: window.innerWidth <= 768 ? "fitDataStretch" : "fitColumns",
-        reactiveData: true
+        reactiveData: true,
+        movableColumns: true,        // allow column reordering
+        resizableColumns: true,      // allow column resizing
+        height: "700px",             // fixed height => header sticks; table scrolls
+        placeholder: "No Data Available",
+        // allow header menu? Not needed; keep simple
+    };
+
+    // Init table
+    let table = new Tabulator("#tabulator-table", tableOptions);
+
+    // Rebuild table (used after column add/delete)
+    function rebuildTable() {
+        const newCols = buildColumns();
+        // update columns: setColumns replaces existing
+        table.setColumns(newCols);
+        // re-set data to maintain rows
+        table.replaceData(table.getData());
+    }
+
+    // Global search
+    const searchInput = document.getElementById("global-search");
+    let searchTimeout = null;
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim().toLowerCase();
+        if (searchTimeout) clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (q === "") {
+                table.clearFilter(true); // clear filter silently
+            } else {
+                table.setFilter(row => {
+                    return Object.values(row).some(val => String(val).toLowerCase().includes(q));
+                });
+            }
+        }, 150);
     });
 
     // Add Row button
-    const addRowBtn = document.createElement('button');
-    addRowBtn.textContent = "Add Row";
-    addRowBtn.style.marginTop = "10px";
-    addRowBtn.addEventListener('click', () => {
+    document.getElementById("add-row-btn").addEventListener("click", (e) => {
+        e.preventDefault();
         let numRows = parseInt(prompt("How many rows to add?", "1"));
-        if(!isNaN(numRows) && numRows>0){
-            for(let i=0;i<numRows;i++){
-                let newRow={};
-                initialData.columns.forEach(col => {
-                    newRow[col.name] = "";
-                });
+        if (!isNaN(numRows) && numRows > 0) {
+            for (let i=0;i<numRows;i++){
+                const newRow = {};
+                initialData.columns.forEach(c => newRow[c.name] = "");
                 table.addRow(newRow);
             }
+        } else {
+            alert("Please enter a valid number.");
         }
     });
-    document.getElementById('tabulator-table').after(addRowBtn);
 
     // Add Column button
-    const addColBtn = document.createElement('button');
-    addColBtn.textContent = "Add Column";
-    addColBtn.style.marginLeft = "10px";
-    addColBtn.style.marginTop = "10px";
-
-    addColBtn.addEventListener('click', () => {
+    document.getElementById("add-col-btn").addEventListener("click", (e) => {
+        e.preventDefault();
         const colName = prompt("Enter column name:");
-        if(!colName) return;
+        if (!colName) return;
 
         let mapping = "custom";
-
-        if(parentColumns.length > 0){
+        if (parentColumns && parentColumns.length > 0) {
             const options = ["Custom"].concat(parentColumns);
             const choice = prompt(`Map this column to parent column?\nOptions:\n${options.join("\n")}`, "Custom");
-            if(choice && choice !== "Custom" && parentColumns.includes(choice)){
+            if (choice && choice !== "Custom" && parentColumns.includes(choice)) {
                 mapping = choice;
             }
         }
 
         initialData.columns.push({name: colName, mapping: mapping});
-
+        // add column to Tabulator dynamically
         let editor = "input";
         let editorParams = {};
-        if(mapping !== "custom" && parentColumnValues[mapping]){
+        if (mapping !== "custom" && parentColumnValues[mapping]) {
             editor = "select";
             editorParams = { values: parentColumnValues[mapping] };
         }
@@ -147,61 +241,91 @@ document.addEventListener('DOMContentLoaded', function () {
             field: colName,
             editor: editor,
             editorParams: editorParams,
-            headerSort: false,
+            headerSort: true,
+            resizable: true,
+            hozAlign: "left",
+            headerHozAlign: "left",
             titleFormatter: function(){
-                const colDiv = document.createElement("div");
-                colDiv.style.display="flex";
-                colDiv.style.alignItems="center";
-                colDiv.style.justifyContent="space-between";
-
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "flex";
+                wrapper.style.alignItems = "center";
+                wrapper.style.justifyContent = "space-between";
+                wrapper.style.gap = "6px";
                 const titleSpan = document.createElement("span");
                 titleSpan.textContent = `${colName} (${mapping})`;
-
+                titleSpan.style.fontWeight = "600";
                 const delBtn = document.createElement("button");
-                delBtn.textContent="×";
-                delBtn.style.marginLeft="5px";
-                delBtn.style.cursor="pointer";
-                delBtn.addEventListener("click", ()=> {
-                    if(confirm(`Delete column "${colName}"?`)){
-                        table.deleteColumn(colName);
-                        const idx = initialData.columns.findIndex(c => c.name === colName);
-                        if(idx > -1) initialData.columns.splice(idx,1);
-                    }
+                delBtn.textContent = "×";
+                delBtn.style.marginLeft = "6px";
+                delBtn.style.cursor = "pointer";
+                delBtn.style.padding = "2px 6px";
+                delBtn.style.border = "none";
+                delBtn.style.borderRadius = "4px";
+                delBtn.style.background = "#e53935";
+                delBtn.style.color = "#fff";
+                delBtn.title = "Delete column";
+                delBtn.addEventListener("click", () => {
+                    if (!confirm(`Delete column "${colName}"?`)) return;
+                    const idx = initialData.columns.findIndex(c => c.name === colName);
+                    if (idx > -1) initialData.columns.splice(idx,1);
+                    rebuildTable();
                 });
-
-                colDiv.appendChild(titleSpan);
-                colDiv.appendChild(delBtn);
-                return colDiv;
+                wrapper.appendChild(titleSpan);
+                wrapper.appendChild(delBtn);
+                return wrapper;
             }
         });
 
-        table.getData().forEach(row=>row[colName]="");
-        table.replaceData(table.getData());
+        // add empty values to existing rows
+        const rows = table.getData();
+        rows.forEach(r => r[colName] = "");
+        table.replaceData(rows);
     });
 
-    addRowBtn.after(addColBtn);
+    // Toggle freeze first column (Delete button column)
+    document.getElementById("toggle-freeze-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        firstColFrozen = !firstColFrozen;
+        // rebuild to apply frozen state
+        rebuildTable();
+    });
 
-    // Save button
-    document.getElementById('save-btn').addEventListener('click', () => {
+
+
+    // Save button - POST to save_file_data view
+    document.getElementById("save-btn").addEventListener("click", (e) => {
+        e.preventDefault();
         const rows = table.getData();
-        const dataToSave = {columns: initialData.columns, rows: rows};
+        const dataToSave = { columns: initialData.columns, rows: rows };
 
         fetch("{% url 'save_file_data' file.pk %}", {
-            method:"POST",
-            headers:{
-                "X-CSRFToken":"{{ csrf_token }}",
-                "Content-Type":"application/x-www-form-urlencoded"
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/x-www-form-urlencoded"
             },
-            body:"tableData="+encodeURIComponent(JSON.stringify(dataToSave))
-        }).then(res=>res.json()).then(data=>{
-            if(data.status === 'success'){
+            body: "tableData=" + encodeURIComponent(JSON.stringify(dataToSave))
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') {
                 alert("Saved successfully!");
+                // update initialData to reflect saved columns/rows
+                initialData.columns = dataToSave.columns;
+                initialData.rows = dataToSave.rows;
             } else {
                 alert("Error saving data");
+                console.error(data);
             }
+        }).catch(err => {
+            alert("Error saving data");
+            console.error(err);
         });
     });
+
+    // Resize handling: rebuild layout when window size changes
+    window.addEventListener("resize", () => {
+        table.redraw(true);
+    });
+
 });
 </script>
-
 {% endblock %}

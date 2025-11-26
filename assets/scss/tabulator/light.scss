@@ -1,0 +1,98 @@
+/* Main table container */
+.tabulator {
+    background: #ffffff !important;
+    border: 1px solid #ccc !important;
+    color: #222 !important;
+}
+
+/* Header bar */
+.tabulator-header {
+    background: #f7f7f7 !important;
+    border-bottom: 3px solid #21c35e !important; /* green underline */
+}
+
+/* Header columns */
+.tabulator-col {
+    background: #f7f7f7 !important;
+    color: #222 !important;
+    border-right: 1px solid #ddd !important;
+}
+
+/* Header title text */
+.tabulator-col-title {
+    color: #222 !important;
+    font-weight: 600;
+}
+
+/* Header sort arrow */
+.tabulator-col-sorter {
+    color: #21c35e !important;
+}
+
+/* Rows */
+.tabulator-row {
+    background-color: #ffffff !important;
+    color: #333 !important;
+    border-bottom: 1px solid #e5e5e5 !important;
+}
+
+/* Alternating rows */
+.tabulator-row:nth-child(even) {
+    background-color: #f8f8f8 !important;
+}
+
+/* Hover effect */
+.tabulator-row:hover {
+    background-color: #e6f5ea !important;  /* light green tint */
+}
+
+/* Cell borders */
+.tabulator-cell {
+    border-right: 1px solid #e0e0e0 !important;
+}
+
+/* Selected row */
+.tabulator-row.tabulator-selected {
+    background-color: #21c35e !important;
+    color: #ffffff !important;
+}
+
+/* Inputs (editing cell) */
+.tabulator-editing {
+    background-color: #ffffff !important;
+    color: #000 !important;
+    border: 1px solid #21c35e !important;
+}
+
+/* Scrollbar */
+.tabulator .tabulator-tableHolder::-webkit-scrollbar {
+    width: 10px;
+}
+
+.tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
+    background: #c4c4c4;
+    border-radius: 5px;
+}
+
+.tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+#tabulator-table {
+    padding-bottom: 20px;
+}
+
+/* Cell padding */
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content,
+.tabulator-row .tabulator-cell {
+    padding: 10px !important;
+}
+
+/* Page background */
+body {
+    background: #f2f2f2;
+}
