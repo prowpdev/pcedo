@@ -1,6 +1,6 @@
 {% extends '../base.html' %}
 {% block content %}
-<h2 class="text-2xl font-semibold"> {% if file %}Edit{% else %}Create{% endif %} Spreadsheet</h2>
+
 <!-- <form method="post" class="my-5">
     {% csrf_token %}
     <div class="space-y-4 input-groups">
@@ -54,7 +54,7 @@
 {% include '../scripts.html' %}
 {% include '../styles.html' %}
 
-{% include '../tabulator.html' %}
+{% include '../mainTable.html' %}
 {% include '../verify.html' %}
 
 {% endblock %}

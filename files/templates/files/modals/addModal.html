@@ -1,17 +1,233 @@
-<!-- Add Column Modal -->
-<div id="add-col-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-  <div class="bg-white p-6 rounded-lg w-80 modal-center">
-    <h3 class="text-lg font-semibold mb-4">Add Column</h3>
-    <input type="text" id="new-col-name" placeholder="Column Name" class="w-full px-3 py-2 mb-4 border rounded">
-    
-    <label for="map-select" class="block mb-1">Map to Parent Column:</label>
-    <select id="map-select" class="w-full px-3 py-2 mb-4 border rounded">
-      <option value="custom">Custom</option>
-    </select>
-    
-    <div class="flex justify-end gap-2">
-      <button id="cancel-col-btn" class="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-      <button id="confirm-col-btn" class="px-4 py-2 bg-blue-600 text-white rounded">Add</button>
+<!-- Add Column Multi-Step Modal -->
+<div id="add-col-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+
+  <div class="bg-white p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl add-col-modal">
+
+    <!-- Modal Header -->
+    <h3 class="text-xl font-semibold mb-5 text-gray-800">Add Column</h3>
+
+    <!-- Step Indicator -->
+    <ol id="step-indicator" class="flex flex-col sm:flex-row items-start sm:items-center w-full p-3 space-y-3 sm:space-y-0 sm:space-x-4
+               text-sm font-medium bg-gray-100 border border-gray-300 rounded mb-6"
+      style="justify-content: space-around !important;">
+
+      <!-- Step 1 -->
+      <li class="step-item flex items-center text-blue-600" data-step="1">
+        <span
+          class="step-bullet w-6 h-6 flex items-center justify-center text-xs border border-blue-600 rounded-full mr-2">
+          1
+        </span>
+        <span>Column Info</span>
+
+        <svg class="step-arrow w-5 h-5 mx-2 hidden sm:block" xmlns="http://www.w3.org/2000/svg" fill="none"
+          viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </li>
+
+      <!-- Step 2 -->
+      <li class="step-item flex items-center text-gray-500" data-step="2">
+        <span
+          class="step-bullet w-6 h-6 flex items-center justify-center text-xs border border-gray-400 rounded-full mr-2">
+          2
+        </span>
+        <span>Mapping</span>
+
+        <svg class="step-arrow w-5 h-5 mx-2 hidden sm:block" xmlns="http://www.w3.org/2000/svg" fill="none"
+          viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </li>
+
+      <!-- Step 3 -->
+      <li class="step-item flex items-center text-gray-500" data-step="3">
+        <span
+          class="step-bullet w-6 h-6 flex items-center justify-center text-xs border border-gray-400 rounded-full mr-2">
+          3
+        </span>
+        <span>Review</span>
+      </li>
+    </ol>
+
+    <!-- STEP 1 -->
+    <div class="step-content" data-step="1">
+      <input type="text" id="new-col-name" placeholder="Column Name"
+        class="w-full px-3 py-2 mb-4 border rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step-content hidden" data-step="2">
+      <label for="map-select" class="block mb-1 text-gray-700">Map to Parent Column:</label>
+      <select id="map-select"
+        class="w-full px-3 py-2 mb-4 border rounded focus:ring-2 focus:ring-blue-400 focus:outline-none">
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step-content hidden" data-step="3">
+      <p class="mb-3 text-gray-700">Review your column information before adding:</p>
+
+      <div class="bg-gray-100 p-3 rounded text-sm space-y-2 border border-gray-300">
+        <p><strong>Column Name:</strong> <span id="review-col-name"></span></p>
+        <p><strong>Mapping:</strong> <span id="review-col-map"></span></p>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="flex justify-between mt-6">
+
+      <button id="cancel-col-btn" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition">
+        Cancel
+      </button>
+
+      <div class="flex gap-2">
+        <button id="prev-step" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition hidden">
+          Back
+        </button>
+
+        <button id="next-step" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+          Next
+        </button>
+
+        <button id="confirm-col-btn"
+          class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition hidden">
+          Add Column
+        </button>
+      </div>
     </div>
   </div>
 </div>
+
+<script>
+  // ===============================
+// Multi-Step Modal Form Handler
+// ===============================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const modal = document.getElementById("add-col-modal");
+
+    // Step Controls
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    const nextBtn = document.getElementById("next-step");
+    const prevBtn = document.getElementById("prev-step");
+    const confirmBtn = document.getElementById("confirm-col-btn");
+    const cancelBtn = document.getElementById("cancel-col-btn");
+
+    const stepContents = document.querySelectorAll(".step-content");
+    const stepIndicators = document.querySelectorAll(".step-item");
+
+    // Inputs
+    const colNameInput = document.getElementById("new-col-name");
+    const mapSelect = document.getElementById("map-select");
+
+    // Review Elements
+    const reviewColName = document.getElementById("review-col-name");
+    const reviewColMap = document.getElementById("review-col-map");
+
+    // -------------------------------
+    // Show a specific step
+    // -------------------------------
+    function showStep(step) {
+        currentStep = step;
+
+        // Show/hide step content
+        stepContents.forEach(content => {
+            content.classList.toggle("hidden", content.dataset.step != step);
+        });
+
+        // Update indicator UI
+        stepIndicators.forEach(indicator => {
+            const st = Number(indicator.dataset.step);
+            if (st === step) {
+                indicator.classList.remove("text-gray-500");
+                indicator.classList.add("text-blue-600", "font-semibold");
+            } else {
+                indicator.classList.add("text-gray-500");
+                indicator.classList.remove("text-blue-600", "font-semibold");
+            }
+        });
+
+        // Button visibility
+        prevBtn.classList.toggle("hidden", step === 1);
+        nextBtn.classList.toggle("hidden", step === totalSteps);
+        confirmBtn.classList.toggle("hidden", step !== totalSteps);
+
+        // Update review on Step 3
+        if (step === 3) {
+            reviewColName.textContent = colNameInput.value || "(empty)";
+            reviewColMap.textContent = mapSelect.value || "custom";
+        }
+    }
+
+    // -------------------------------
+    // Step Validations
+    // -------------------------------
+    function validateStep(step) {
+        if (step === 1) {
+            if (!colNameInput.value.trim()) {
+                alert("Column name is required");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // -------------------------------
+    // Next Step
+    // -------------------------------
+    nextBtn.addEventListener("click", function () {
+        if (!validateStep(currentStep)) return;
+
+        if (currentStep < totalSteps) {
+            showStep(currentStep + 1);
+        }
+    });
+
+    // -------------------------------
+    // Previous Step
+    // -------------------------------
+    prevBtn.addEventListener("click", function () {
+        if (currentStep > 1) {
+            showStep(currentStep - 1);
+        }
+    });
+
+    // -------------------------------
+    // Confirm Submit
+    // -------------------------------
+    confirmBtn.addEventListener("click", function () {
+        // Final review complete
+        // You can hook this to your Tabulator add-column function
+        console.log("Submit Column:");
+        console.log("Name:", colNameInput.value);
+        console.log("Mapping:", mapSelect.value);
+
+        // Close Modal
+        modal.classList.add("hidden");
+    });
+
+    // -------------------------------
+    // Cancel / Close Modal
+    // -------------------------------
+    cancelBtn.addEventListener("click", function () {
+        modal.classList.add("hidden");
+        showStep(1);
+    });
+
+    // -------------------------------
+    // Expose function to open the modal
+    // -------------------------------
+    window.openAddColumnModal = function () {
+        modal.classList.remove("hidden");
+        showStep(1);
+    };
+
+    // Init
+    showStep(1);
+});
+
+</script>

@@ -4,6 +4,9 @@ from .models import SpreadsheetFile
 from .forms import SpreadsheetFileForm
 import json
 
+def home(request):
+    return render(request, 'index.html')
+
 def file_list(request):
     """List all spreadsheet files"""
     files = SpreadsheetFile.objects.all()
