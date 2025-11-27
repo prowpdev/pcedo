@@ -1,0 +1,475 @@
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // Load initial data
+    let initialData = {};
+    try {
+        initialData = JSON.parse(document.getElementById('data-json').textContent);
+    } catch (e) {
+        initialData = { columns: [], rows: [] };
+    }
+
+    initialData.columns = initialData.columns || [];
+    initialData.rows = initialData.rows || [];
+
+    const parentColumns = {{ parent_columns|safe }};
+    const parentColumnValues = {{ parent_column_values|safe }};
+    
+    let firstColFrozen = true;
+
+    // Add Row
+    document.getElementById("add-row-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        const numRows = parseInt(prompt("How many rows to add?", "1"));
+        if (!isNaN(numRows) && numRows > 0) {
+            for (let i=0;i<numRows;i++){
+                const newRow = { rowId: generateRowId() };
+                initialData.columns.forEach(c => newRow[c.name] = "");
+                table.addRow(newRow);
+            }
+        } else {
+            Toastify({ text: "Invalid number of rows", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+        }
+    });
+
+    // -------------------------------------------------
+    // Build Columns From Saved Data
+    // -------------------------------------------------
+    function buildColumns() {
+        const cols = [];
+
+        cols.push({
+            title: "",
+            width:70,
+            hozAlign: "center",
+            frozen: firstColFrozen,
+            titleFormatter: function() {
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "flex";
+                wrapper.style.justifyContent = "center";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.title = "Select All";
+
+                checkbox.addEventListener("change", function() {
+                    if (checkbox.checked) {
+                        let selectedAll = table.selectRow();
+                        selectedRows = table.getSelectedData();
+                        console.log(selectedRows);
+                        
+                    } else {
+                        table.deselectRow();
+                    }
+                });
+
+                wrapper.appendChild(checkbox);
+                return wrapper;
+            },
+            formatter: function () {
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "flex";
+                wrapper.style.justifyContent = "center";
+                wrapper.style.gap = "5px";
+
+                const btn = document.createElement("button");
+                btn.classList.add("trash-btn");
+                
+                // btn.setAttribute("command", "show-modal");
+                // btn.setAttribute("commandfor", "dialog");
+                btn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                </svg>`;
+
+                const checkbox = document.createElement("input");
+                checkbox.classList.add('rowcheckbox')
+                checkbox.type = "checkbox";
+               
+               
+                wrapper.appendChild(btn)
+                // wrapper.appendChild(checkbox)
+                return wrapper;
+            },
+            cellClick: (e, cell) => {
+                const dialog = document.getElementById("dialog");
+                dialog.showModal();
+
+                const confirmBtn = dialog.querySelector(".confirm-delete");
+                const cancelBtn = dialog.querySelector(".cancel-delete");
+
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+
+                confirmBtn.onclick = () => {
+                    cell.getRow().delete();
+                    dialog.close();
+                };
+                cancelBtn.onclick = () => dialog.close();
+
+                // 
+                const checkboxes = document.querySelectorAll('.rowcheckbox');
+                checkboxes.forEach((checkbox)=>{
+                    checkbox.addEventListener("change", function() {
+                        if (checkbox.checked) {
+                            // cell.getRow().selectRow()
+                        } else {
+                            // cell.getRow().deselectRow()
+                        }
+                    });
+                })
+                
+            }
+        });
+
+        // Saved Columns
+        initialData.columns.forEach(colObj => {
+            const colName = colObj.name;
+            const mapping = colObj.mapping || "custom";
+
+            let editor = "input", editorParams = {};
+            if (mapping !== "custom" && parentColumnValues[mapping]) {
+                editor = "select";
+                editorParams = { values: parentColumnValues[mapping] };
+            }
+
+            cols.push({
+                title: `${colName} (${mapping})`,
+                field: colName,
+                editor,
+                editorParams,
+                headerSort: true,
+                resizable: true,
+                titleFormatter: function () {
+                    const wrapper = document.createElement("div");
+                    wrapper.style.display = "flex";
+                    wrapper.style.alignItems = "center";
+                    wrapper.style.justifyContent = "space-between";
+
+                    const titleSpan = document.createElement("span");
+                    titleSpan.textContent = `${colName} (${mapping})`;
+                    titleSpan.style.fontWeight = "600";
+
+                    const delBtn = document.createElement("button");
+                    delBtn.classList.add("trash-btn");
+                    delBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                    </svg>`;
+
+                    delBtn.onclick = () => {
+                        if (!confirm(`Delete column \"${colName}\"?`)) return;
+                        const idx = initialData.columns.findIndex(c => c.name === colName);
+                        if (idx > -1) initialData.columns.splice(idx, 1);
+                        rebuildTable();
+                    };
+
+                    wrapper.appendChild(titleSpan);
+                    wrapper.appendChild(delBtn);
+
+
+                    
+                    return wrapper;
+                }
+            });
+        });
+
+        return cols;
+    }
+    
+    function populateRowFromParent() {
+    const parentRows = window.PARENT_DATA?.rows || [];
+    if (!parentRows.length) {
+        Toastify({
+            text: "No parent data available",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            backgroundColor: "#e53935"
+        }).showToast();
+        return;
+    }
+
+    const existingData = table.getData();
+    const existingIds = new Set(existingData.map(r => r.rowId)); // track existing rowIds
+    let addedCount = 0;
+
+    parentRows.forEach(parentRow => {
+        const newRow = { rowId: generateRowId() }; // assign unique ID
+
+        initialData.columns.forEach(col => {
+            const key = col.mapping && col.mapping !== "custom" ? col.mapping : col.name;
+            newRow[col.name] = parentRow[key] !== undefined ? parentRow[key] : "";
+        });
+
+        // Optional: prevent duplicates by content (can remove if rowId is enough)
+        const isDuplicate = existingData.some(r => {
+            const copyR = { ...r }; delete copyR.rowId;
+            const copyNew = { ...newRow }; delete copyNew.rowId;
+            return JSON.stringify(copyR) === JSON.stringify(copyNew);
+        });
+
+        if (!isDuplicate && !existingIds.has(newRow.rowId)) {
+            table.addRow(newRow);
+            addedCount++;
+        }
+    });
+
+    Toastify({
+        text: `Added ${addedCount} new row(s) from parent`,
+        duration: 3000,
+        gravity: "top",
+        position: "right",
+        backgroundColor: "#1e90ff"
+    }).showToast();
+}
+function generateRowId() {
+    // You can use timestamp + random string to ensure uniqueness
+    return 'row_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+}
+    PopulateRows()
+    function PopulateRows(){
+        const populateBtn = document.getElementById("populate-row-btn");
+        if (populateBtn) {
+            populateBtn.addEventListener("click", () => {
+            populateRowFromParent()
+            });
+        }
+    }
+
+    // -------------------------------------------------
+    // Build Columns From Parent Data (First Time Only)
+    // -------------------------------------------------
+    function buildInitialColumns() {
+        const parentRows = window.PARENT_DATA?.rows || [];
+        const parentCols = parentRows.length ? Object.keys(parentRows[0]) : [];
+
+        // Mirror parent columns into data model
+        initialData.columns = parentCols.map(c => ({ name: c, mapping: "custom" }));
+
+        const cols = [];
+
+        // Row delete button
+        cols.push({
+            title: "",
+            width: 45,
+            hozAlign: "center",
+            formatter: "buttonCross",
+            frozen: true,
+            editor: false, // read-only
+            formatter: function() {
+                const btn = document.createElement("button");
+                btn.classList.add("trash-btn");
+                btn.setAttribute("command","show-modal")
+                btn.setAttribute("commandfor","dialog")
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                </svg>`;
+                return btn;
+            },
+            cellClick: (e, cell) => cell.getRow().delete()
+        });
+
+        // Build parent-based columns
+        parentCols.forEach(colName => {
+            cols.push({
+                title: colName,
+                field: colName,
+                editor: "input",
+                widthGrow: 1,
+                titleFormatter: function () {
+                    const wrapper = document.createElement("div");
+                    wrapper.style.display = "flex";
+                    wrapper.style.alignItems = "center";
+                    wrapper.style.justifyContent = "space-between";
+
+                    const titleSpan = document.createElement("span");
+                    titleSpan.textContent = colName;
+                    titleSpan.style.fontWeight = "600";
+
+                    const delBtn = document.createElement("button");
+                    delBtn.classList.add("trash-btn");
+                    delBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                        </svg>`;
+
+                    delBtn.onclick = () => {
+                        if (!confirm(`Delete column \"${colName}\"?`)) return;
+
+                        const idx = initialData.columns.findIndex(c => c.name === colName);
+                        if (idx > -1) initialData.columns.splice(idx, 1);
+
+                        table.getData().forEach(row => delete row[colName]);
+                        table.deleteColumn(colName);
+                    };
+
+                    wrapper.appendChild(titleSpan);
+                    wrapper.appendChild(delBtn);
+
+                    
+                    return wrapper;
+                }
+            });
+        });
+
+        return cols;
+    }
+    // Search
+       // Global search
+    const searchInput = document.getElementById("global-search");
+    let searchTimeout = null;
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim().toLowerCase();
+        if (searchTimeout) clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (q === "") table.clearFilter(true);
+            else table.setFilter(row => Object.values(row).some(val => String(val).toLowerCase().includes(q)));
+        }, 150);
+    });
+    // -------------------------------------------------
+    // DECIDE WHICH TABLE STRUCTURE TO USE
+    // -------------------------------------------------
+    const hasSavedData = initialData.columns.length > 0;
+    const table = new Tabulator("#tabulator-table", {
+        // data: initialData.rows,
+        data: initialData.rows,
+        columns: hasSavedData ? buildColumns() : buildInitialColumns(),
+        layout: window.innerWidth <= 768 ? "fitDataStretch" : "fitColumns",
+        reactiveData: true,
+        movableColumns: true,
+        resizableColumns: true,
+        pagination:"local",
+        paginationSize:10,
+        paginationSizeSelector:[10,20,50,100],
+        movableColumns:true,
+        paginationCounter:"rows",
+        // selectable: true,
+        height: "700px",
+        placeholder: "No Data Available"
+    });
+
+    function rebuildTable() {
+        table.setColumns(buildColumns());
+        table.replaceData(table.getData());
+        console.log(table.rows);
+        
+    }
+     // Add Column Modal
+    const addColBtn = document.getElementById("add-col-btn");
+    const modal = document.getElementById("add-col-modal");
+    const cancelBtn = document.getElementById("cancel-col-btn");
+    const confirmBtn = document.getElementById("confirm-col-btn");
+    const colNameInput = document.getElementById("new-col-name");
+    const mapSelect = document.getElementById("map-select");
+
+    function populateMappingOptions() {
+        mapSelect.innerHTML = '<option value="custom">Custom</option>';
+        if (parentColumns && parentColumns.length) {
+            parentColumns.forEach(col => {
+                const option = document.createElement("option");
+                option.value = col;
+                option.textContent = col;
+                mapSelect.appendChild(option);
+            });
+        }
+    }
+
+    addColBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        populateMappingOptions();
+        colNameInput.value = "";
+        modal.classList.remove("hidden");
+    });
+
+    cancelBtn.addEventListener("click", () => modal.classList.add("hidden"));
+
+    confirmBtn.addEventListener("click", () => {
+        const colName = colNameInput.value.trim();
+        if (!colName) {
+            Toastify({ text: "Column name cannot be empty", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            return;
+        }
+        const mapping = mapSelect.value;
+        initialData.columns.push({ name: colName, mapping: mapping });
+
+        let editor = "input", editorParams = {};
+        if (mapping !== "custom" && parentColumnValues[mapping]) {
+            editor = "select"; editorParams = { values: parentColumnValues[mapping] };
+        }
+
+        table.addColumn({
+            title: `${colName} (${mapping})`,
+            field: colName,
+            editor: editor,
+            editorParams: editorParams,
+            headerSort: true,
+            resizable: true,
+            hozAlign: "left",
+            headerHozAlign: "left",
+            titleFormatter: function(){
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "flex";
+                wrapper.style.alignItems = "center";
+                wrapper.style.justifyContent = "space-between";
+                wrapper.style.gap = "6px";
+                const titleSpan = document.createElement("span");
+                titleSpan.textContent = `${colName} (${mapping})`;
+                titleSpan.style.fontWeight = "600";
+                const delBtn = document.createElement("button");
+                delBtn.classList.add("trash-btn");
+                delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                </svg>`;
+                delBtn.style.marginLeft = "6px";
+                delBtn.style.cursor = "pointer";
+                delBtn.style.padding = "2px 6px";
+                delBtn.style.border = "none";
+                delBtn.style.borderRadius = "4px";
+                delBtn.style.background = "#e53935";
+                delBtn.style.color = "#fff";
+                delBtn.title = "Delete column";
+                delBtn.addEventListener("click", () => {
+                    if (!confirm(`Delete column "${colName}"?`)) return;
+                    const idx = initialData.columns.findIndex(c => c.name === colName);
+                    if (idx > -1) initialData.columns.splice(idx,1);
+                    rebuildTable();
+                });
+                wrapper.appendChild(titleSpan);
+                wrapper.appendChild(delBtn);
+                return wrapper;
+            }
+        });
+
+        table.getData().forEach(r => r[colName] = "");
+        table.replaceData(table.getData());
+
+        Toastify({ text: `Column "${colName}" added`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
+
+        modal.classList.add("hidden");
+    });
+
+     // Save Spreadsheet
+    document.getElementById("save-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        const rows = table.getData();
+        const dataToSave = { columns: initialData.columns, rows: rows };
+
+        fetch("{% url 'save_file_data' file.pk %}", {
+            method: "POST",
+            headers: { "X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/x-www-form-urlencoded" },
+            body: "tableData=" + encodeURIComponent(JSON.stringify(dataToSave))
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') Toastify({ text: "Saved successfully!", duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
+            else Toastify({ text: "Error saving data", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+        }).catch(err => {
+            Toastify({ text: "Error saving data", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            console.error(err);
+        });
+    });
+
+    window.addEventListener("resize", () => table.redraw(true));
+
+});
+
+</script>

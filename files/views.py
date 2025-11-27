@@ -72,15 +72,35 @@ def file_edit(request, pk=None, parent_id=None):
     # Pass data to template
     data_json = json.dumps(file.data if file else {"columns": [], "rows": []})
 
-    return render(request, 'files/file_edit.html', {
-        'form': form,
-        'file': file,
-        'data_json': data_json,
-        'mainfileId': mainfile_id,
-        'parent_columns': parent_columns,
-        'parent_column_values': parent_column_values,
-    })
 
+    if file:
+        if (file.file_type or "").lower() == "child" and file.parent:
+            parent_rows = []
+            if file and file.file_type.lower() == "child" and file.parent:
+                parent_rows = file.parent.data.get("rows", [])
+            # ensure parent_column_values entries are lists of strings (unique)
+            for k, v in parent_column_values.items():
+                parent_column_values[k] = [str(x) if x is not None else "" for x in sorted(set(v))]
+
+            data_json = json.dumps(file.data if file else {"columns": [], "rows": []})
+            return render(request, 'files/type/child_file_edit.html', {
+                'form': form,
+                'file': file,
+                'data_json': data_json,
+                'mainfileId': mainfile_id,
+                'parent_columns': parent_columns,
+                'parent_column_values': parent_column_values,
+                'parent_rows': parent_rows,
+            })
+        else:
+            return render(request, 'files/type/main_file_edit.html', {
+                'form': form,
+                'file': file,
+                'data_json': data_json,
+                'mainfileId': mainfile_id,
+                'parent_columns': parent_columns,
+                'parent_column_values': parent_column_values,
+            })
 
 def save_file_data(request, pk):
     """Save spreadsheet data (columns + rows) via AJAX"""

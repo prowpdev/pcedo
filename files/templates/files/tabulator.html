@@ -1,0 +1,312 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Load initial data
+    let initialData = {};
+    try { initialData = JSON.parse(document.getElementById('data-json').textContent); } 
+    catch(e){ initialData = {columns: [], rows: []}; }
+    initialData.columns = initialData.columns || [];
+    initialData.rows = initialData.rows || [];
+    
+
+    const parentColumns = {{ parent_columns|safe }};
+    const parentColumnValues = {{ parent_column_values|safe }};
+    let firstColFrozen = true;
+
+    // Build Tabulator columns
+    function buildColumns() {
+        const cols = [];
+        cols.push({
+            title: "",
+            width: 70,
+            hozAlign: "center",
+            frozen: firstColFrozen,
+            titleFormatter: function() {
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "flex";
+                wrapper.style.justifyContent = "center";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.title = "Select All";
+
+                checkbox.addEventListener("change", function() {
+                    if (checkbox.checked) {
+                        let selectedAll = table.selectRow();
+                        selectedRows = table.getSelectedData();
+                        console.log(selectedRows);
+                        
+                    } else {
+                        table.deselectRow();
+                    }
+                });
+
+                wrapper.appendChild(checkbox);
+                return wrapper;
+            },
+            formatter: function() {
+                const btn = document.createElement("button");
+                btn.classList.add("trash-btn");
+                btn.setAttribute("command","show-modal")
+                btn.setAttribute("commandfor","dialog")
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                </svg>`;
+                return btn;
+            },
+            cellClick: (e, cell) =>  {
+                const dialog = document.getElementById("dialog");
+                dialog.showModal();
+
+                const confirmBtn = dialog.querySelector(".confirm-delete");
+                const cancelBtn = dialog.querySelector(".cancel-delete");
+
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+
+                confirmBtn.onclick = () => {
+                    cell.getRow().delete()
+                    dialog.close();
+                    onConfirm(); 
+                };
+                cancelBtn.onclick = () => {
+                    dialog.close();
+                };
+                
+            }
+        });
+
+        initialData.columns.forEach(colObj => {
+            const colName = colObj.name;
+            const mapping = colObj.mapping || "custom";
+            
+            let editor = "input", editorParams = {};
+            if(mapping !== "custom" && parentColumnValues[mapping]){
+                editor = "select"; editorParams = { values: parentColumnValues[mapping] };
+            }
+            cols.push({
+                title: `${colName} (${mapping})`,
+                field: colName,
+                editor: editor,
+                editorParams: editorParams,
+                headerSort: true,
+                hozAlign: "left",
+                headerHozAlign: "left",
+                resizable: true,
+                titleFormatter: function(){
+                    const wrapper = document.createElement("div");
+                    wrapper.style.display = "flex";
+                    wrapper.style.alignItems = "center";
+                    wrapper.style.justifyContent = "space-between";
+                    wrapper.style.gap = "6px";
+
+                    const titleSpan = document.createElement("span");
+                    if(mapping != "custom"){
+                        titleSpan.textContent = `${colName} (${mapping})`;
+                    } else{
+                        titleSpan.textContent = `${colName}`;
+                    }
+                    titleSpan.style.fontWeight = "600";
+                    const delBtn = document.createElement("button");
+                    delBtn.classList.add("trash-btn");
+                    delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                    </svg>`;
+                    delBtn.style.marginLeft = "6px";
+                    delBtn.style.cursor = "pointer";
+                    delBtn.style.padding = "2px 6px";
+                    delBtn.style.border = "none";
+                    delBtn.style.borderRadius = "4px";
+                    delBtn.style.background = "#e53935";
+                    delBtn.style.color = "#fff";
+                    delBtn.title = "Delete column";
+                    delBtn.addEventListener("click", () => {
+                        if (!confirm(`Delete column "${colName}"?`)) return;
+                        const idx = initialData.columns.findIndex(c => c.name === colName);
+                        if (idx > -1) initialData.columns.splice(idx, 1);
+                        rebuildTable();
+                    });
+
+                    wrapper.appendChild(titleSpan);
+                    wrapper.appendChild(delBtn);
+                    return wrapper;
+                }
+            });
+        });
+        return cols;
+    }
+
+    const table = new Tabulator("#tabulator-table", {
+        data: initialData.rows,
+        columns: buildColumns(),
+        layout: window.innerWidth <= 768 ? "fitDataStretch" : "fitColumns",
+        reactiveData: true,
+        movableColumns: true,
+        resizableColumns: true,
+        pagination:"local",
+        paginationSize:10,
+        paginationSizeSelector:[10,20,50,100],
+        movableColumns:true,
+        paginationCounter:"rows",
+        height: "700px",
+        placeholder: "No Data Available"
+    });
+
+    function rebuildTable() {
+        table.setColumns(buildColumns());
+        table.replaceData(table.getData());
+    }
+    function generateRowId() {
+        // You can use timestamp + random string to ensure uniqueness
+        return 'row_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    }
+
+    // Global search
+    const searchInput = document.getElementById("global-search");
+    let searchTimeout = null;
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim().toLowerCase();
+        if (searchTimeout) clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (q === "") table.clearFilter(true);
+            else table.setFilter(row => Object.values(row).some(val => String(val).toLowerCase().includes(q)));
+        }, 150);
+    });
+
+    // Add Row
+    document.getElementById("add-row-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        const numRows = parseInt(prompt("How many rows to add?", "1"));
+        if (!isNaN(numRows) && numRows > 0) {
+            for (let i=0;i<numRows;i++){
+                // const newRow = {}; initialData.columns.forEach(c => newRow[c.name] = "");
+                // table.addRow(newRow);
+                const newRow = { rowId: generateRowId() };
+                initialData.columns.forEach(c => newRow[c.name] = "");
+                table.addRow(newRow);
+            }
+        } else {
+            Toastify({ text: "Invalid number of rows", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+        }
+    });
+
+    // Add Column Modal
+    const addColBtn = document.getElementById("add-col-btn");
+    const modal = document.getElementById("add-col-modal");
+    const cancelBtn = document.getElementById("cancel-col-btn");
+    const confirmBtn = document.getElementById("confirm-col-btn");
+    const colNameInput = document.getElementById("new-col-name");
+    const mapSelect = document.getElementById("map-select");
+
+    function populateMappingOptions() {
+        mapSelect.innerHTML = '<option value="custom">Custom</option>';
+        if (parentColumns && parentColumns.length) {
+            parentColumns.forEach(col => {
+                const option = document.createElement("option");
+                option.value = col;
+                option.textContent = col;
+                mapSelect.appendChild(option);
+            });
+        }
+    }
+
+    addColBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        populateMappingOptions();
+        colNameInput.value = "";
+        modal.classList.remove("hidden");
+    });
+
+    cancelBtn.addEventListener("click", () => modal.classList.add("hidden"));
+
+    confirmBtn.addEventListener("click", () => {
+        const colName = colNameInput.value.trim();
+        if (!colName) {
+            Toastify({ text: "Column name cannot be empty", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            return;
+        }
+        const mapping = mapSelect.value;
+        initialData.columns.push({ name: colName, mapping: mapping });
+
+        let editor = "input", editorParams = {};
+        if (mapping !== "custom" && parentColumnValues[mapping]) {
+            editor = "select"; editorParams = { values: parentColumnValues[mapping] };
+        }
+
+        table.addColumn({
+            title: `${colName} (${mapping})`,
+            field: colName,
+            editor: editor,
+            editorParams: editorParams,
+            headerSort: true,
+            resizable: true,
+            hozAlign: "left",
+            headerHozAlign: "left",
+            titleFormatter: function(){
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "flex";
+                wrapper.style.alignItems = "center";
+                wrapper.style.justifyContent = "space-between";
+                wrapper.style.gap = "6px";
+                const titleSpan = document.createElement("span");
+                if(mapping != "custom"){
+                    titleSpan.textContent = `${colName} (${mapping})`;
+                } else{
+                    titleSpan.textContent = `${colName}`;
+                }
+               
+                titleSpan.style.fontWeight = "600";
+                const delBtn = document.createElement("button");
+                delBtn.classList.add("trash-btn");
+                delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                </svg>`;
+                delBtn.style.marginLeft = "6px";
+                delBtn.style.cursor = "pointer";
+                delBtn.style.padding = "2px 6px";
+                delBtn.style.border = "none";
+                delBtn.style.borderRadius = "4px";
+                delBtn.style.background = "#e53935";
+                delBtn.style.color = "#fff";
+                delBtn.title = "Delete column";
+                delBtn.addEventListener("click", () => {
+                    if (!confirm(`Delete column "${colName}"?`)) return;
+                    const idx = initialData.columns.findIndex(c => c.name === colName);
+                    if (idx > -1) initialData.columns.splice(idx,1);
+                    rebuildTable();
+                });
+                wrapper.appendChild(titleSpan);
+                wrapper.appendChild(delBtn);
+                return wrapper;
+            }
+        });
+
+        table.getData().forEach(r => r[colName] = "");
+        table.replaceData(table.getData());
+
+        Toastify({ text: `Column "${colName}" added`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
+
+        modal.classList.add("hidden");
+    });
+
+    // Save Spreadsheet
+    document.getElementById("save-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        const rows = table.getData();
+        const dataToSave = { columns: initialData.columns, rows: rows };
+
+        fetch("{% url 'save_file_data' file.pk %}", {
+            method: "POST",
+            headers: { "X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/x-www-form-urlencoded" },
+            body: "tableData=" + encodeURIComponent(JSON.stringify(dataToSave))
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') Toastify({ text: "Saved successfully!", duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
+            else Toastify({ text: "Error saving data", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+        }).catch(err => {
+            Toastify({ text: "Error saving data", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            console.error(err);
+        });
+    });
+
+    window.addEventListener("resize", () => table.redraw(true));
+});
+</script>

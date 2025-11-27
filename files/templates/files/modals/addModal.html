@@ -1,0 +1,17 @@
+<!-- Add Column Modal -->
+<div id="add-col-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+  <div class="bg-white p-6 rounded-lg w-80 modal-center">
+    <h3 class="text-lg font-semibold mb-4">Add Column</h3>
+    <input type="text" id="new-col-name" placeholder="Column Name" class="w-full px-3 py-2 mb-4 border rounded">
+    
+    <label for="map-select" class="block mb-1">Map to Parent Column:</label>
+    <select id="map-select" class="w-full px-3 py-2 mb-4 border rounded">
+      <option value="custom">Custom</option>
+    </select>
+    
+    <div class="flex justify-end gap-2">
+      <button id="cancel-col-btn" class="px-4 py-2 bg-gray-300 rounded">Cancel</button>
+      <button id="confirm-col-btn" class="px-4 py-2 bg-blue-600 text-white rounded">Add</button>
+    </div>
+  </div>
+</div>

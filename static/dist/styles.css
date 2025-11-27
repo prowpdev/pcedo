@@ -5,7 +5,12 @@
 /*!****************************************************************************************************************!*\
   !*** css ./node_modules/css-loader/dist/cjs.js!./node_modules/sass-loader/dist/cjs.js!./assets/scss/main.scss ***!
   \****************************************************************************************************************/
-
+.modal-center {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 50%);
+}
 /*!***************************************************************************************************************************!*\
   !*** css ./node_modules/css-loader/dist/cjs.js!./node_modules/sass-loader/dist/cjs.js!./assets/scss/tabulator/light.scss ***!
   \***************************************************************************************************************************/
@@ -94,7 +99,7 @@
 }
 
 #tabulator-table {
-  padding-bottom: 20px;
+  /* padding-bottom: 20px; */
 }
 
 /* Cell padding */

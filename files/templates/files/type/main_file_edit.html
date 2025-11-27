@@ -1,0 +1,23 @@
+{% extends '../base.html' %}
+{% block content %}
+<h2 class="text-2xl font-semibold"> {% if file %}Edit{% else %}Create{% endif %} Spreadsheet</h2>
+<!-- <form method="post" class="my-5">
+    {% csrf_token %}
+    <div class="space-y-4 input-groups">
+        {{ form.as_div|safe }}
+    </div>
+</form> -->
+{% include '../modals/modal.html' %}
+{% include '../modals/addModal.html' %}
+{% include '../header.html' %}
+<!-- Table container -->
+<div id="tabulator-table"></div>
+<!-- Hidden JSON data -->
+<div id="data-json" class="hidden">{{ data_json|safe }}</div>
+
+{% include '../scripts.html' %}
+{% include '../styles.html' %}
+
+{% include '../tabulator.html' %}
+
+{% endblock %}

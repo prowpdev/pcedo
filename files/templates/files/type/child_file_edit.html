@@ -1,0 +1,40 @@
+{% extends '../base.html' %}
+{% block content %}
+<h2 class="text-2xl font-semibold"> {% if file %}Edit{% else %}Create{% endif %} Spreadsheet</h2>
+
+<!-- <form method="post" class="my-5">
+    {% csrf_token %}
+    <div class="space-y-4 input-groups">
+        {{ form.as_div|safe }}
+    </div>
+</form> -->
+
+{% include '../modals/modal.html' %}
+{% include '../modals/addModal.html' %}
+{% include '../header.html' %}
+
+<!-- Table container -->
+<div id="tabulator-table"></div>
+
+<!-- Hidden JSON data -->
+<div id="data-json" class="hidden">{{ data_json|safe }}</div>
+
+<!-- Container to output account names + their parent-row data -->
+<h3 class="mt-4 text-lg font-medium">Parent Accounts</h3>
+<div id="parent-accounts" class="space-y-2 text-sm"></div>
+
+{% include '../scripts.html' %}
+{% include '../styles.html' %}
+{{parent_rows}}
+<!-- Expose parent data to JS environment -->
+<script>
+window.PARENT_DATA = {
+    rows: {{ parent_rows|safe }},
+};
+window.PARENT_COLUMNS = {{ parent_columns|safe }};
+window.PARENT_COLUMN_VALUES = {{ parent_column_values|safe }};
+</script>
+
+{% include '../childTable.html' %}  {# this contains your Tabulator child JS; it will now use window.PARENT_* #}
+
+{% endblock %}
