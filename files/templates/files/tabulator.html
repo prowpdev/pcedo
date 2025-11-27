@@ -150,6 +150,39 @@ document.addEventListener('DOMContentLoaded', function () {
         height: "700px",
         placeholder: "No Data Available"
     });
+        function populateFilterColumns() {
+    const filterFieldSelect = document.getElementById("filter-field");
+    filterFieldSelect.innerHTML = `<option value="">-- Select Column --</option>`;
+
+    initialData.columns.forEach(col => {
+        const opt = document.createElement("option");
+        opt.value = col.name;
+        opt.textContent = col.name;
+        filterFieldSelect.appendChild(opt);
+        });
+    }
+    populateFilterColumns();
+
+
+    document.getElementById("filter-trigger").addEventListener("click", function () {
+        const field = document.getElementById("filter-field").value;
+        const type = document.getElementById("filter-type").value;
+        const value = document.getElementById("filter-value").value;
+
+        if (!field) {
+            Toastify({ text: "Please select a column to filter", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            return;
+        }
+
+        table.setFilter(field, type, value);
+    });
+
+    document.getElementById("filter-clear").addEventListener("click", function () {
+        table.clearFilter();
+        document.getElementById("filter-field").value = "";
+        document.getElementById("filter-value").value = "";
+    });
+
 
     function rebuildTable() {
         table.setColumns(buildColumns());

@@ -37,6 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------------------------------
     function buildColumns() {
         const cols = [];
+        let selectedRows = []
+        
 
         cols.push({
             title: "",
@@ -125,10 +127,11 @@ document.addEventListener("DOMContentLoaded", () => {
         // Saved Columns
         initialData.columns.forEach(colObj => {
             const colName = colObj.name;
-            const mapping = colObj.mapping || "custom";
+            const mapping = colObj.mapping || "";
+            
 
             let editor = "input", editorParams = {};
-            if (mapping !== "custom" && parentColumnValues[mapping]) {
+            if (mapping !== "" && parentColumnValues[mapping]) {
                 editor = "select";
                 editorParams = { values: parentColumnValues[mapping] };
             }
@@ -145,9 +148,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     wrapper.style.display = "flex";
                     wrapper.style.alignItems = "center";
                     wrapper.style.justifyContent = "space-between";
-
+                    let dataColumnName;
                     const titleSpan = document.createElement("span");
-                    titleSpan.textContent = `${colName} (${mapping})`;
+                    if(mapping != ''){
+                        dataColumnName = `(${mapping})`
+                    }else{
+                        dataColumnName = ""
+                    }
+                    titleSpan.textContent = `${colName} ${dataColumnName}`;
                     titleSpan.style.fontWeight = "600";
 
                     const delBtn = document.createElement("button");
@@ -245,7 +253,7 @@ function generateRowId() {
         const parentCols = parentRows.length ? Object.keys(parentRows[0]) : [];
 
         // Mirror parent columns into data model
-        initialData.columns = parentCols.map(c => ({ name: c, mapping: "custom" }));
+        initialData.columns = parentCols.map(c => ({ name: c, mapping: "" }));
 
         const cols = [];
 
@@ -331,6 +339,7 @@ function generateRowId() {
     // DECIDE WHICH TABLE STRUCTURE TO USE
     // -------------------------------------------------
     const hasSavedData = initialData.columns.length > 0;
+
     const table = new Tabulator("#tabulator-table", {
         // data: initialData.rows,
         data: initialData.rows,
@@ -345,9 +354,44 @@ function generateRowId() {
         movableColumns:true,
         paginationCounter:"rows",
         // selectable: true,
-        height: "700px",
+        height: "505px",
         placeholder: "No Data Available"
     });
+
+    function populateFilterColumns() {
+    const filterFieldSelect = document.getElementById("filter-field");
+    filterFieldSelect.innerHTML = `<option value="">-- Select Column --</option>`;
+
+    initialData.columns.forEach(col => {
+        const opt = document.createElement("option");
+        opt.value = col.name;
+        opt.textContent = col.name;
+        filterFieldSelect.appendChild(opt);
+        });
+    }
+    populateFilterColumns();
+
+
+    document.getElementById("filter-trigger").addEventListener("click", function () {
+        const field = document.getElementById("filter-field").value;
+        const type = document.getElementById("filter-type").value;
+        const value = document.getElementById("filter-value").value;
+
+        if (!field) {
+            Toastify({ text: "Please select a column to filter", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            return;
+        }
+
+        table.setFilter(field, type, value);
+    });
+
+    document.getElementById("filter-clear").addEventListener("click", function () {
+        table.clearFilter();
+        document.getElementById("filter-field").value = "";
+        document.getElementById("filter-value").value = "";
+    });
+
+
 
     function rebuildTable() {
         table.setColumns(buildColumns());

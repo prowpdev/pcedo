@@ -9,7 +9,43 @@
 </form> -->
 {% include '../modals/modal.html' %}
 {% include '../modals/addModal.html' %}
-{% include '../header.html' %}
+<!-- Controls -->
+ <!-- Controls: Global search, actions -->
+<div class="flex gap-2 items-center mb-2">
+    <input type="text" id="global-search" placeholder="Search..." class="px-3 py-2 border rounded w-72">
+    <button id="add-row-btn" class="btn bg-blue-600 text-white px-3 py-2 rounded">Add Row</button>
+    <button id="add-col-btn" class="btn bg-green-600 text-white px-3 py-2 rounded">Add Column</button>
+    <button id="export-csv-btn" class="btn bg-gray-600 text-white px-3 py-2 rounded">Export CSV</button>
+    <button id="export-xlsx-btn" class="btn bg-gray-600 text-white px-3 py-2 rounded">Export Excel</button>
+    <button id="save-btn" class="btn bg-purple-600 text-white px-3 py-2 rounded ml-auto">Save Spreadsheet</button>
+</div>
+<div class="flex items-center gap-4 my-4">
+    <select id="filter-field" class="px-3 py-2 border rounded w-72">
+        <option value="">-- Select Column --</option>
+    </select>
+
+    <select id="filter-type" class="px-3 py-2 border rounded w-72">
+        <option value="like">Contains</option>
+        <option value="=">Equals</option>
+        <option value="!=">Not Equal</option>
+        <option value="<">Less Than</option>
+        <option value="<=">Less or Equal</option>
+        <option value=">">Greater Than</option>
+        <option value=">=">Greater or Equal</option>
+        <option value="regex">Regex</option>
+    </select>
+
+    <input id="filter-value" type="text" class="px-3 py-2 border rounded w-72" placeholder="Enter filter value">
+
+    <button id="filter-trigger" class="btn bg-blue-600 text-white px-3 py-2 rounded">
+        Apply Filter
+    </button>
+
+    <button id="filter-clear" class="btn bg-green-600 text-white px-3 py-2 rounded">
+        Clear Filter
+    </button>
+</div>
+<!-- /Controls -->
 <!-- Table container -->
 <div id="tabulator-table"></div>
 <!-- Hidden JSON data -->
@@ -19,5 +55,6 @@
 {% include '../styles.html' %}
 
 {% include '../tabulator.html' %}
+{% include '../verify.html' %}
 
 {% endblock %}

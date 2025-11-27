@@ -12,6 +12,35 @@
 {% include '../modals/modal.html' %}
 {% include '../modals/addModal.html' %}
 {% include '../header.html' %}
+<div class="flex items-center gap-4 my-4">
+    <select id="filter-field" class="px-3 py-2 border rounded w-72">
+        <option value="">-- Select Column --</option>
+    </select>
+
+    <select id="filter-type" class="px-3 py-2 border rounded w-72">
+        <option value="like">Contains</option>
+        <option value="=">Equals</option>
+        <option value="!=">Not Equal</option>
+        <option value="<">Less Than</option>
+        <option value="<=">Less or Equal</option>
+        <option value=">">Greater Than</option>
+        <option value=">=">Greater or Equal</option>
+        <option value="regex">Regex</option>
+    </select>
+
+    <input id="filter-value" type="text" class="px-3 py-2 border rounded w-72" placeholder="Enter filter value">
+
+    <button id="filter-trigger" class="btn bg-blue-600 text-white px-3 py-2 rounded">
+        Apply Filter
+    </button>
+
+    <button id="filter-clear" class="btn bg-green-600 text-white px-3 py-2 rounded">
+        Clear Filter
+    </button>
+</div>
+
+
+<div id="example-table"></div>
 
 <!-- Table container -->
 <div id="tabulator-table"></div>
@@ -25,7 +54,7 @@
 
 {% include '../scripts.html' %}
 {% include '../styles.html' %}
-{{parent_rows}}
+
 <!-- Expose parent data to JS environment -->
 <script>
 window.PARENT_DATA = {
@@ -35,6 +64,7 @@ window.PARENT_COLUMNS = {{ parent_columns|safe }};
 window.PARENT_COLUMN_VALUES = {{ parent_column_values|safe }};
 </script>
 
-{% include '../childTable.html' %}  {# this contains your Tabulator child JS; it will now use window.PARENT_* #}
-
+{% include '../childTable.html' %}  
+<!-- for table checking -->
+{% include '../verify.html' %}
 {% endblock %}
