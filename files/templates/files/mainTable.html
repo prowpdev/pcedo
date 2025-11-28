@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let firstColFrozen = true;
     let table; // Declare table globally for reusability
     let isColumnActive = false;
+    let colId = "";
 
     // --- REUSABLE FUNCTION: CORE COLUMN LOGIC (Editors/Formatters/Mutators) ---
     /**
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (colInputType === "date") {
             config.editor = "date";
             config.editorParams = {
-                format: "YYYY-MM-DD", 
+                // format: "mm dd yyyy", 
                 datepicker: { showOn: "cell" }
             };
         } 
@@ -92,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function () {
      * @param {function} rebuildTable - The function to call after column deletion.
      * @returns {function} Tabulator titleFormatter function.
      */
-    function createTitleFormatter(colName, mapping, colInputType, rebuildTable,isColumnActive) {
+    function createTitleFormatter(colId,colName, mapping, colInputType, rebuildTable,isColumnActive) {
         return function() {
             const wrapper = document.createElement("div");
             wrapper.classList.add('trash-btn-col');
@@ -100,6 +101,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const titleSpan = document.createElement("span");
             titleSpan.style.fontWeight = "600";
             titleSpan.setAttribute('input-type', `${colInputType}`);
+            titleSpan.setAttribute('id', `${colId}`);
             titleSpan.setAttribute('active', true);
             const titleText = mapping !== "custom" ? `${colName} (${mapping})` : `${colName}`;
             titleSpan.textContent = titleText;
@@ -199,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     //toggle current column visibility
                     column.toggle();
                     
-                    //change menu item icon
+                    // change menu item icon
                     // if(column.isVisible()){
                     //     icon.classList.remove("fa-square");
                     //     icon.classList.add("fa-check-square");
@@ -241,29 +243,19 @@ document.addEventListener('DOMContentLoaded', function () {
         options.push({
             label: 'Delete Column',
             action: function(e, column) {
-                // 1. Get the field name of the column to delete
                 const colName = column.getField();
                 
-                // 2. Confirm deletion before proceeding
                 if (!confirm(`Are you sure you want to delete the column "${colName}"?`)) {
                     return; // Stop if user cancels
-                }
-
-                // 3. Remove the column from the Tabulator table
-                // NOTE: This usually triggers columnTitleChanged, but we handle state cleanup explicitly.
+                }  
                 column.delete(); 
                 
-                // 4. Update the local data structure (initialData)
                 const idx = initialData.columns.findIndex(c => c.name === colName);
  
                 if (idx > -1) {
                     initialData.columns.splice(idx, 1);
                 }
-
-                // 5. Rebuild the table (Crucial for reapplying column definitions/formatters/titles)
                 rebuildTable(); 
-                
-                // Optional: Show a confirmation toast
                 Toastify({ text: `Column "${colName}" deleted`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
             }
         });
@@ -282,26 +274,6 @@ document.addEventListener('DOMContentLoaded', function () {
             frozen: firstColFrozen,
             // ... (rest of the control column definition remains the same) ...
             headerMenu:headerMenu,
-            // headerMenu:hideColOption(rebuildTable),
-            // titleFormatter: function() {
-            //     const wrapper = document.createElement("div");
-            //     wrapper.style.display = "flex";
-            //     wrapper.style.justifyContent = "center";
-            //     const checkbox = document.createElement("input");
-            //     checkbox.type = "checkbox";
-            //     checkbox.title = "Select All";
-            //     checkbox.addEventListener("change", function() {
-            //         if (checkbox.checked) {
-            //             let selectedAll = table.selectRow();
-            //             selectedRows = table.getSelectedData();
-            //             console.log(selectedRows);
-            //         } else {
-            //             table.deselectRow();
-            //         }
-            //     });
-            //     wrapper.appendChild(checkbox);
-            //     return wrapper;
-            // },
             formatter: function() {
                 const btn = document.createElement("button");
                 btn.classList.add("trash-btn");
@@ -348,7 +320,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const mapping = colObj.mapping || "custom";
             const colInputType = colObj.type || "text";
             const isHidden = colObj.status || false;
-            console.log(isHidden);
+            const colId = colObj.id || "";
+            // console.log(isHidden);
+            // console.log(colObj.id);
             
             
             // 🔥 REUSABLE CALL 1: Get editor/formatter config
@@ -368,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 editableTitle: false,  
                 visible: !isHidden,
                 // 🔥 REUSABLE CALL 2: Get complex title formatter
-                titleFormatter: createTitleFormatter(colName, mapping, colInputType, rebuildTable,isColumnActive),
+                titleFormatter: createTitleFormatter(colId,colName, mapping, colInputType, rebuildTable,isColumnActive),
                 headerMenu:hideColOption(rebuildTable)
                
             });
@@ -452,8 +426,89 @@ document.addEventListener('DOMContentLoaded', function () {
         table.clearFilter();
         document.getElementById("filter-field").value = "";
         document.getElementById("filter-value").value = "";
+          
     });
 
+    /**
+ * Calculates the report content (string) based on the report type.
+ * @param {number} numPayment - The monthly payment amount.
+ * @param {string} reportType - 'Monthly', 'Quarterly', or 'Annual'.
+ * @returns {string} The formatted report string.
+ */
+function calculateReportContent(numPayment, reportType) {
+    if (isNaN(numPayment) || numPayment <= 0) {
+        return 'No Payment Due';
+    }
+
+    let multiplier = 1;
+    let period = reportType;
+    
+    if (reportType === 'Quarterly') {
+        multiplier = 3;
+    } else if (reportType === 'Annual') {
+        multiplier = 12;
+    }
+    
+    const amount = numPayment * multiplier;
+    return `$${amount.toFixed(2)} ${period} Due`;
+}
+// Generate Report
+
+document.getElementById('add-report-column-btn').addEventListener('click', function() {
+    const select = document.getElementById('report-type-select');
+    const reportType = select.value;
+
+    if (!reportType) {
+        alert("Please select a report type first.");
+        return;
+    }
+
+    // Determine the new column's title and field name
+    const columnTitle = `${reportType} Report`;
+    const columnField = columnTitle.replace(/\s/g, '_'); // e.g., 'Quarterly_Report'
+
+    // Check if the column already exists (optional, but good practice)
+    if (table.getColumn(columnField)) {
+        alert(`Column "${columnTitle}" already exists!`);
+        return;
+    }
+
+    // --- 1. Add the Column to Tabulator ---
+    // Tabulator's 'addColumn' method
+    table.addColumn({
+        title: columnTitle,
+        field: columnField,
+        hozAlign: 'center',
+        headerHozAlign: 'center',
+        // Optional: Add other properties like editor, formatter, etc.
+    }, false) // 'false' adds it to the right of existing columns
+    .then(() => {
+        // --- 2. Generate and Populate Data for the New Column ---
+        const PAYMENT_FIELD = 'Premium Amount'; // Use your existing payment field name
+        
+        table.getRows().forEach(row => {
+            const rowData = row.getData(); 
+            const paymentValue = rowData[PAYMENT_FIELD]; 
+            const numPayment = parseFloat(paymentValue);
+            
+            // Calculate content using the helper function
+            const reportContent = calculateReportContent(numPayment, reportType);
+            
+            // Update the new field in the row data
+            row.update({ 
+                [columnField]: reportContent 
+            });
+        });
+        
+        // Reset the select option
+        select.value = "";
+        
+        Toastify({ text: `Successfully added and populated the ${columnTitle} column.`, duration: 3000, gravity: "bottom", position: "center", backgroundColor: "#38A169" }).showToast();
+    })
+    .catch(error => {
+        console.error("Error adding dynamic column:", error);
+    });
+});
 
     function generateRowId() {
         return 'row_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -494,6 +549,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const colNameInput = document.getElementById("new-col-name");
     const mapSelect = document.getElementById("map-select");
     const colInputType = document.getElementById("col-input-type");
+    const colIdInput = document.getElementById("col-id-input");
    
 
     addColBtn.addEventListener("click", (e) => {
@@ -512,10 +568,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         const mapping = mapSelect.value;
         const type = colInputType.value
-        console.log(isColumnActive);
-        
+        const colId = colIdInput.value
     
-        const newColObj = { name: colName, mapping: mapping, type: type, status:isColumnActive };
+        const newColObj = { id:colId, name: colName, mapping: mapping, type: type, status:isColumnActive };
         initialData.columns.push(newColObj);
 
         // 🔥 REUSABLE CALL 1: Get editor/formatter config
@@ -533,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function () {
             hozAlign: config.hozAlign,
             headerHozAlign: config.hozAlign,
             // 🔥 REUSABLE CALL 2: Get complex title formatter,
-            titleFormatter: createTitleFormatter(colName, mapping, type, rebuildTable,isColumnActive ),
+            titleFormatter: createTitleFormatter(colId,colName, mapping, type, rebuildTable,isColumnActive ),
             headerMenu:hideColOption(rebuildTable)
         });
 
@@ -556,6 +611,11 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     }
+    // Create custom functions
+   
+  
+    
+
     
     // Save Spreadsheet
     document.getElementById("save-btn").addEventListener("click", (e) => {

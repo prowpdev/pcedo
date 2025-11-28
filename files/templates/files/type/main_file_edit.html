@@ -23,7 +23,6 @@
     <button id="export-csv-btn" class="btn bg-gray-600 text-white px-3 py-2 rounded">Export CSV</button>
     <button id="export-xlsx-btn" class="btn bg-gray-600 text-white px-3 py-2 rounded">Export Excel</button>
     <button id="save-btn" class="btn bg-purple-600 text-white px-3 py-2 rounded ml-auto">Save Spreadsheet</button>
-    
 </div>
 <div class="flex items-center gap-4 my-4">
     <select id="filter-field" class="px-3 py-2 border rounded w-72">
@@ -51,6 +50,22 @@
         Clear Filter
     </button>
 </div>
+<!-- Report Generation -->
+<div class="reports">
+    <div class="flex gap-2 items-center mb-2">
+        <select id="report-type-select" class="p-2 border rounded">
+    <option value="" disabled selected>Select Report Type</option>
+    <option value="Monthly">Monthly Report</option>
+    <option value="Quarterly">Quarterly Report</option>
+    <option value="Annual">Annual Report</option>
+</select>
+
+<button id="add-report-column-btn" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition ml-3">
+    Add Report Column
+</button>
+    </div>
+</div>
+<!--  -->
 <!-- /Controls -->
 <!-- Table container -->
 <div id="tabulator-table"></div>
@@ -62,5 +77,8 @@
 
 {% include '../mainTable.html' %}
 {% include '../verify.html' %}
+
+<!-- Function for table columns -->
+{% include '../columnFunctions/monthly_report.html' %}
 
 {% endblock %}
