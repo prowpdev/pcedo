@@ -44,12 +44,13 @@ def file_create(request, parent_id=None, file_id=None):
 
         if form.is_valid():
             saved_file = form.save(commit=False)
-
+    
             # Detect if NEW file (no primary key yet)
             is_new_file = saved_file.pk is None
 
             # Assign parent for NEW CHILD files
             if is_new_file:
+                parent_id = saved_file.parent.pk
                 if parent_id:
                     parent_file = SpreadsheetFile.objects.filter(pk=parent_id).first()
                     if parent_file:
