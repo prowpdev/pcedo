@@ -50,7 +50,8 @@ def file_create(request, parent_id=None, file_id=None):
 
             # Assign parent for NEW CHILD files
             if is_new_file:
-                parent_id = saved_file.parent.pk
+                if saved_file.parent:
+                    parent_id = saved_file.parent.pk
                 if parent_id:
                     parent_file = SpreadsheetFile.objects.filter(pk=parent_id).first()
                     if parent_file:

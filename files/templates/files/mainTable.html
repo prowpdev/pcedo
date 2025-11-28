@@ -1,48 +1,307 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Load initial data
+    // ⚙️ Initial Data Setup
     let initialData = {};
     try { initialData = JSON.parse(document.getElementById('data-json').textContent); } 
     catch(e){ initialData = {columns: [], rows: []}; }
     initialData.columns = initialData.columns || [];
     initialData.rows = initialData.rows || [];
     
-
     const parentColumns = {{ parent_columns|safe }};
     const parentColumnValues = {{ parent_column_values|safe }};
     let firstColFrozen = true;
+    let table; // Declare table globally for reusability
+    let isColumnActive = false;
 
-    // Build Tabulator columns
+    // --- REUSABLE FUNCTION: CORE COLUMN LOGIC (Editors/Formatters/Mutators) ---
+    /**
+     * Determines the Tabulator properties (editor, formatter, mutator) based on the column type.
+     * @param {object} colObj - The column object from initialData.columns
+     * @returns {object} Tabulator column configuration properties.
+     */
+    function getColumnDefinition(colObj) {
+        const colName = colObj.name;
+        const colInputType = colObj.type || "text";
+        
+        let config = {
+            editor: "input", 
+            editorParams: {},
+            formatter: undefined, 
+            mutator: undefined,   
+            hozAlign: "left"
+        };
+
+        if (colInputType === "date") {
+            config.editor = "date";
+            config.editorParams = {
+                format: "YYYY-MM-DD", 
+                datepicker: { showOn: "cell" }
+            };
+        } 
+        else if (colInputType === "number") {
+            config.editor = "input";
+            config.hozAlign = "right";
+            config.editorParams = {
+                type: "number",
+                step: "any" 
+            };
+            
+            // Formatter: Display value with commas and 2 decimal places
+            config.formatter = function(cell) {
+                const val = cell.getValue();
+                if (val === null || val === undefined || val === "") return "";
+                const num = Number(val);
+                
+                return num.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            };
+
+            // Mutator: Clean input (remove commas) and store with fixed 2 decimals
+            config.mutator = function(value) {
+                const cleanValue = String(value).replace(/,/g, ''); 
+                const parsed = parseFloat(cleanValue);
+                
+                return isNaN(parsed) ? value : parsed.toFixed(2);
+            };
+
+        }
+        else if (colInputType === "text" || colInputType === "default") {
+            config.editor = "list";
+            config.editorParams = {
+                valuesLookup: "active",
+                valuesLookupField: colName,
+                clearable: true,
+                multiselect: false,
+                autocomplete: true,
+                freetext: true,
+                listOnEmpty: true,
+            };
+        }
+        
+        return config;
+    }
+
+    // --- REUSABLE FUNCTION: COLUMN HEADER FORMATTER ---
+    /**
+     * Creates the complex HTML for the column header, including action buttons.
+     * @param {string} colName - The field name of the column.
+     * @param {string} mapping - The mapping name.
+     * @param {string} colInputType - The input type of the column.
+     * @param {function} rebuildTable - The function to call after column deletion.
+     * @returns {function} Tabulator titleFormatter function.
+     */
+    function createTitleFormatter(colName, mapping, colInputType, rebuildTable,isColumnActive) {
+        return function() {
+            const wrapper = document.createElement("div");
+            wrapper.classList.add('trash-btn-col');
+
+            const titleSpan = document.createElement("span");
+            titleSpan.style.fontWeight = "600";
+            titleSpan.setAttribute('input-type', `${colInputType}`);
+            titleSpan.setAttribute('active', true);
+            const titleText = mapping !== "custom" ? `${colName} (${mapping})` : `${colName}`;
+            titleSpan.textContent = titleText;
+            
+            // Delete Button
+            const delBtn = document.createElement("button");
+            delBtn.classList.add("trash-btn");
+            delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+            </svg>`;
+            delBtn.title = "Delete column";
+            delBtn.addEventListener("click", () => {
+                if (!confirm(`Delete column "${colName}"?`)) return;
+                const idx = initialData.columns.findIndex(c => c.name === colName);
+                if (idx > -1) initialData.columns.splice(idx, 1);
+                rebuildTable();
+            });
+
+            // Edit Button (Placeholder for future feature)
+            const editBtn = document.createElement("button");
+            editBtn.title = "Edit column";
+            editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h357l-80 80H200v560h560v-278l80-80v358q0 33-23.5 56.5T760-120H200Zm280-360ZM360-360v-170l367-367q12-12 27-18t30-6q16 0 30.5 6t26.5 18l56 57q11 12 17 26.5t6 29.5q0 15-5.5 29.5T897-728L530-360H360Zm481-424-56-56 56 56ZM440-440h56l232-232-28-28-29-28-231 231v57Zm260-260-29-28 29 28 28 28-28-28Z"/></svg>`;
+            editBtn.addEventListener("click", () => { console.log('Edit column clicked:', colName); rebuildTable(); }); // Placeholder action
+
+            wrapper.appendChild(titleSpan);
+            wrapper.appendChild(delBtn);
+            wrapper.appendChild(editBtn);
+            
+            // return wrapper;
+            return titleSpan
+        };
+    }
+        //define row context menu contents
+    const rowMenu = [
+        {
+            label:"<i class='fas fa-user'></i> Change Name",
+            action:function(e, row){
+                row.update({name:"Steve Bobberson"});
+            }
+        },
+        {
+            label:"<i class='fas fa-check-square'></i> Select Row",
+            action:function(e, row){
+                row.select();
+            }
+        },
+        {
+            separator:true,
+        },
+        {
+            label:"Admin Functions",
+            menu:[
+                {
+                    label:"<i class='fas fa-trash'></i> Delete Row",
+                    action:function(e, row){
+                        row.delete();
+                    }
+                },
+                {
+                    label:"<i class='fas fa-ban'></i> Disabled Option",
+                    disabled:true,
+                },
+            ]
+        }
+    ]
+
+    //define column header menu as column visibility toggle
+    const headerMenu = function(){
+        var menu = [];
+        var allColumns = this.getColumns();
+        var columns = allColumns.slice(1);
+        
+
+        for(let column of columns){
+
+            //create checkbox element using font awesome icons
+            let icon = document.createElement("i");
+            icon.classList.add("fas");
+            icon.classList.add(column.isVisible() ? "fa-check-square" : "fa-square");
+
+            //build label
+            let label = document.createElement("span");
+            let title = document.createElement("span");
+
+            title.textContent = " " + column.getDefinition().title;
+
+            label.appendChild(icon);
+            label.appendChild(title);
+
+            //create menu item
+            menu.push({
+                label:label,
+                action:function(e){
+                    //prevent menu closing
+                    e.stopPropagation();
+
+                    //toggle current column visibility
+                    column.toggle();
+                    
+                    //change menu item icon
+                    // if(column.isVisible()){
+                    //     icon.classList.remove("fa-square");
+                    //     icon.classList.add("fa-check-square");
+                    // }else{
+                    //     icon.classList.remove("fa-check-square");
+                    //     icon.classList.add("fa-square");
+                    // }
+                    hideOrShowColumn(column,true)
+
+                }
+            });
+        }
+     
+        return menu;
+    };
+    function hideOrShowColumn(column,status){
+        isColumnActive = status
+        // update status of the column
+        const colName = column.getField();
+        const idx = initialData.columns.findIndex(c => c.name === colName);
+        if (idx > -1) {
+            initialData.columns[idx].status = !status;
+        }
+        rebuildTable();
+    }
+    const hideColOption = function(rebuildTable){
+        var options = [];
+        
+        // 1. Hide Column Option
+        options.push({
+            label: 'Hide Column',
+            action: function(e, column) {
+                column.hide();
+                hideOrShowColumn(column,false)
+            }
+        });
+
+        // 2. Delete Column Option
+        options.push({
+            label: 'Delete Column',
+            action: function(e, column) {
+                // 1. Get the field name of the column to delete
+                const colName = column.getField();
+                
+                // 2. Confirm deletion before proceeding
+                if (!confirm(`Are you sure you want to delete the column "${colName}"?`)) {
+                    return; // Stop if user cancels
+                }
+
+                // 3. Remove the column from the Tabulator table
+                // NOTE: This usually triggers columnTitleChanged, but we handle state cleanup explicitly.
+                column.delete(); 
+                
+                // 4. Update the local data structure (initialData)
+                const idx = initialData.columns.findIndex(c => c.name === colName);
+ 
+                if (idx > -1) {
+                    initialData.columns.splice(idx, 1);
+                }
+
+                // 5. Rebuild the table (Crucial for reapplying column definitions/formatters/titles)
+                rebuildTable(); 
+                
+                // Optional: Show a confirmation toast
+                Toastify({ text: `Column "${colName}" deleted`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            }
+        });
+        
+        return options;
+    }
+    // --- MAIN FUNCTION: BUILD COLUMNS ---
     function buildColumns(params) {
         const cols = [];
+        // first column
+        // --- 1. Control Column (Trash/Delete Row) ---
         cols.push({
             title: "",
-            width: 70,
+            width: 100,
             hozAlign: "center",
             frozen: firstColFrozen,
-            titleFormatter: function() {
-                const wrapper = document.createElement("div");
-                wrapper.style.display = "flex";
-                wrapper.style.justifyContent = "center";
-
-                const checkbox = document.createElement("input");
-                checkbox.type = "checkbox";
-                checkbox.title = "Select All";
-
-                checkbox.addEventListener("change", function() {
-                    if (checkbox.checked) {
-                        let selectedAll = table.selectRow();
-                        selectedRows = table.getSelectedData();
-                        console.log(selectedRows);
-                        
-                    } else {
-                        table.deselectRow();
-                    }
-                });
-
-                wrapper.appendChild(checkbox);
-                return wrapper;
-            },
+            // ... (rest of the control column definition remains the same) ...
+            headerMenu:headerMenu,
+            // headerMenu:hideColOption(rebuildTable),
+            // titleFormatter: function() {
+            //     const wrapper = document.createElement("div");
+            //     wrapper.style.display = "flex";
+            //     wrapper.style.justifyContent = "center";
+            //     const checkbox = document.createElement("input");
+            //     checkbox.type = "checkbox";
+            //     checkbox.title = "Select All";
+            //     checkbox.addEventListener("change", function() {
+            //         if (checkbox.checked) {
+            //             let selectedAll = table.selectRow();
+            //             selectedRows = table.getSelectedData();
+            //             console.log(selectedRows);
+            //         } else {
+            //             table.deselectRow();
+            //         }
+            //     });
+            //     wrapper.appendChild(checkbox);
+            //     return wrapper;
+            // },
             formatter: function() {
                 const btn = document.createElement("button");
                 btn.classList.add("trash-btn");
@@ -53,10 +312,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 </svg>`;
                 return btn;
             },
-            cellClick: (e, cell) =>  {
+            headerContext:(e,column) =>{
+                console.log(column);
+                e.preventDefault();
+                
+            },
+            headerTap:(e,column)=>{
+                console.log(column);
+
+            },
+            cellClick: (e, cell) =>  {
                 const dialog = document.getElementById("dialog");
                 dialog.showModal();
-
                 const confirmBtn = dialog.querySelector(".confirm-delete");
                 const cancelBtn = dialog.querySelector(".cancel-delete");
 
@@ -66,108 +333,93 @@ document.addEventListener('DOMContentLoaded', function () {
                 confirmBtn.onclick = () => {
                     cell.getRow().delete()
                     dialog.close();
-                    onConfirm(); 
                 };
                 cancelBtn.onclick = () => {
                     dialog.close();
                 };
-                
-            }
+            },
         });
+        // ---------------------------------------------
 
+
+        // --- 2. Dynamic Data Columns ---
         initialData.columns.forEach(colObj => {
             const colName = colObj.name;
             const mapping = colObj.mapping || "custom";
+            const colInputType = colObj.type || "text";
+            const isHidden = colObj.status || false;
+            console.log(isHidden);
             
-            let editor = "input", editorParams = {};
-            // if(mapping !== "custom" && parentColumnValues[mapping]){
-            //     editor = "select"; editorParams = { values: parentColumnValues[mapping] };
-            // }
-            console.log(parentColumnValues);
             
-           
+            // 🔥 REUSABLE CALL 1: Get editor/formatter config
+            const config = getColumnDefinition(colObj);
+            
             cols.push({
                 title: `${colName} (${mapping})`,
                 field: colName,
-                editor: editor,
-                // editableTitle:true,
-                editorParams: editorParams,
+                editor: config.editor,
+                editorParams: config.editorParams,
+                formatter: config.formatter, 
+                mutator: config.mutator,   
                 headerSort: true,
-                hozAlign: "left",
-                headerHozAlign: "left",
+                hozAlign: config.hozAlign,
+                headerHozAlign: config.hozAlign,
                 resizable: true,
-                titleFormatter: function(){
-                    const wrapper = document.createElement("div");
-                    wrapper.classList.add('trash-btn-col');
-
-                    const titleSpan = document.createElement("span");
-                    titleSpan.style.fontWeight = "600";
-
-                    if(mapping != "custom"){
-                        titleSpan.textContent = `${colName} (${mapping})`;
-                    } else{
-                        titleSpan.textContent = `${colName}`;
-                    }
-                    
-                    const delBtn = document.createElement("button");
-                    delBtn.classList.add("trash-btn");
-                    delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
-                    </svg>`;
-                    delBtn.title = "Delete column";
-                    delBtn.addEventListener("click", () => {
-                        if (!confirm(`Delete column "${colName}"?`)) return;
-                        const idx = initialData.columns.findIndex(c => c.name === colName);
-                        if (idx > -1) initialData.columns.splice(idx, 1);
-                        rebuildTable();
-                    });
-
-                    wrapper.appendChild(titleSpan);
-                    wrapper.appendChild(delBtn);
-                    const editBtn = document.createElement("button");
-                    editBtn.title = "Edit column";
-                    editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h357l-80 80H200v560h560v-278l80-80v358q0 33-23.5 56.5T760-120H200Zm280-360ZM360-360v-170l367-367q12-12 27-18t30-6q16 0 30.5 6t26.5 18l56 57q11 12 17 26.5t6 29.5q0 15-5.5 29.5T897-728L530-360H360Zm481-424-56-56 56 56ZM440-440h56l232-232-28-28-29-28-231 231v57Zm260-260-29-28 29 28 28 28-28-28Z"/></svg>`
-                    wrapper.appendChild(editBtn);
-
-                    editBtn.addEventListener("click", () => {
-                        console.log('test');
-                        buildColumns(true)
-                     
-                    });
-
-                    return wrapper;
-                }
+                editableTitle: false,  
+                visible: !isHidden,
+                // 🔥 REUSABLE CALL 2: Get complex title formatter
+                titleFormatter: createTitleFormatter(colName, mapping, colInputType, rebuildTable,isColumnActive),
+                headerMenu:hideColOption(rebuildTable)
+               
             });
         });
         return cols;
     }
-    
-    const table = new Tabulator("#tabulator-table", {
+
+    // --- UTILITY FUNCTION: REBUILD TABLE ---
+    function rebuildTable() {
+        table.setColumns(buildColumns(false));
+        table.replaceData(table.getData());
+        
+ 
+    }
+   
+
+    // --- Tabulator Instance Initialization ---
+    table = new Tabulator("#tabulator-table", {
         data: initialData.rows,
         columns: buildColumns(false),
         layout: window.innerWidth <= 768 ? "fitDataStretch" : "fitColumns",
         reactiveData: true,
         movableColumns: true,
         resizableColumns: true,
-        // headerEdit: true,
         pagination:"local",
         paginationSize:10,
         paginationSizeSelector:[10,20,50,100],
         movableColumns:true,
         paginationCounter:"rows",
         height: "505px",
-        placeholder: "No Data Available"
+        placeholder: "No Data Available",
+        // rowContextMenu: rowMenu, //add context menu to rows
+       
+        cellEdited: function(cell){
+            const rowData = cell.getRow().getData();
+            const field = cell.getField();
+            const newValue = cell.getValue();
+            console.log(`Cell Edited: Row ID ${rowData.id}, Field ${field} is now ${newValue}`);
+        },
     });
+
+    // ... (rest of the non-reusable functions like populateFilterColumns, generateRowId, etc. remain here) ...
     table.on("columnTitleChanged", function(column){
         const newTitle = column.getDefinition().title;
         const field = column.getField();
-        // Find column inside initialData
         const col = initialData.columns.find(c => c.name === field);
         if (col) {
-            col.name = newTitle;  // update the JSON
+            col.name = newTitle;
         }
     });
-    
+     
 
     function populateFilterColumns() {
         const filterFieldSelect = document.getElementById("filter-field");
@@ -178,7 +430,7 @@ document.addEventListener('DOMContentLoaded', function () {
             opt.value = col.name;
             opt.textContent = col.name;
             filterFieldSelect.appendChild(opt);
-            });
+        });
     }
     populateFilterColumns();
 
@@ -203,12 +455,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 
-    function rebuildTable() {
-        table.setColumns(buildColumns(false));
-        table.replaceData(table.getData());
-    }
     function generateRowId() {
-        // You can use timestamp + random string to ensure uniqueness
         return 'row_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
     }
 
@@ -230,8 +477,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const numRows = parseInt(prompt("How many rows to add?", "1"));
         if (!isNaN(numRows) && numRows > 0) {
             for (let i=0;i<numRows;i++){
-                // const newRow = {}; initialData.columns.forEach(c => newRow[c.name] = "");
-                // table.addRow(newRow);
                 const newRow = { rowId: generateRowId() };
                 initialData.columns.forEach(c => newRow[c.name] = "");
                 table.addRow(newRow);
@@ -240,15 +485,66 @@ document.addEventListener('DOMContentLoaded', function () {
             Toastify({ text: "Invalid number of rows", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
         }
     });
-
-    // Add Column Modal
+ 
+    // Add Column Modal Logic
     const addColBtn = document.getElementById("add-col-btn");
     const modal = document.getElementById("add-col-modal");
     const cancelBtn = document.getElementById("cancel-col-btn");
     const confirmBtn = document.getElementById("confirm-col-btn");
     const colNameInput = document.getElementById("new-col-name");
     const mapSelect = document.getElementById("map-select");
+    const colInputType = document.getElementById("col-input-type");
+   
 
+    addColBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        populateMappingOptions();
+        colNameInput.value = "";
+        modal.classList.remove("hidden");
+    });
+    cancelBtn.addEventListener("click", () => modal.classList.add("hidden"));
+
+    confirmBtn.addEventListener("click", () => {
+        const colName = colNameInput.value.trim();
+        if (!colName) {
+            Toastify({ text: "Column name cannot be empty", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
+            return;
+        }
+        const mapping = mapSelect.value;
+        const type = colInputType.value
+        console.log(isColumnActive);
+        
+    
+        const newColObj = { name: colName, mapping: mapping, type: type, status:isColumnActive };
+        initialData.columns.push(newColObj);
+
+        // 🔥 REUSABLE CALL 1: Get editor/formatter config
+        const config = getColumnDefinition(newColObj);
+        
+        table.addColumn({
+            title: `${colName} (${mapping})`,
+            field: colName,
+            editor: config.editor,
+            editorParams: config.editorParams,
+            formatter: config.formatter,     // Reused logic
+            mutator: config.mutator,         // Reused logic
+            headerSort: true,
+            resizable: true,
+            hozAlign: config.hozAlign,
+            headerHozAlign: config.hozAlign,
+            // 🔥 REUSABLE CALL 2: Get complex title formatter,
+            titleFormatter: createTitleFormatter(colName, mapping, type, rebuildTable,isColumnActive ),
+            headerMenu:hideColOption(rebuildTable)
+        });
+
+        table.getData().forEach(r => r[colName] = "");
+        table.replaceData(table.getData());
+
+        Toastify({ text: `Column "${colName}" added`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
+
+        modal.classList.add("hidden");
+    });
+    
     function populateMappingOptions() {
         mapSelect.innerHTML = '<option value="custom">Custom</option>';
         if (parentColumns && parentColumns.length) {
@@ -260,92 +556,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     }
-
-    addColBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        populateMappingOptions();
-        colNameInput.value = "";
-        modal.classList.remove("hidden");
-    });
-
-    cancelBtn.addEventListener("click", () => modal.classList.add("hidden"));
-
-    confirmBtn.addEventListener("click", () => {
-        const colName = colNameInput.value.trim();
-        if (!colName) {
-            Toastify({ text: "Column name cannot be empty", duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
-            return;
-        }
-        const mapping = mapSelect.value;
-        initialData.columns.push({ name: colName, mapping: mapping });
-
-        let editor = "input", editorParams = {};
-        if (mapping !== "custom" && parentColumnValues[mapping]) {
-            editor = "select"; editorParams = { values: parentColumnValues[mapping] };
-        }
-
-        table.addColumn({
-            title: `${colName} (${mapping})`,
-            field: colName,
-            editor: editor,
-            editorParams: editorParams,
-            headerSort: true,
-            resizable: true,
-            hozAlign: "left",
-            headerHozAlign: "left",
-            titleFormatter: function(){
-                const wrapper = document.createElement("div");
-                wrapper.style.display = "flex";
-                wrapper.style.alignItems = "center";
-                wrapper.style.justifyContent = "space-between";
-                wrapper.style.gap = "6px";
-                const titleSpan = document.createElement("span");
-                if(mapping != "custom"){
-                    titleSpan.textContent = `${colName} (${mapping})`;
-                } else{
-                    titleSpan.textContent = `${colName}`;
-                }
-               
-                titleSpan.style.fontWeight = "600";
-                const delBtn = document.createElement("button");
-                delBtn.classList.add("trash-btn");
-                delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
-                </svg>`;
-                delBtn.style.marginLeft = "6px";
-                delBtn.style.cursor = "pointer";
-                delBtn.style.padding = "2px 6px";
-                delBtn.style.border = "none";
-                delBtn.style.borderRadius = "4px";
-                delBtn.style.background = "#e53935";
-                delBtn.style.color = "#fff";
-                delBtn.title = "Delete column";
-                delBtn.addEventListener("click", () => {
-                    if (!confirm(`Delete column "${colName}"?`)) return;
-                    const idx = initialData.columns.findIndex(c => c.name === colName);
-                    if (idx > -1) initialData.columns.splice(idx,1);
-                    rebuildTable();
-                });
-                wrapper.appendChild(titleSpan);
-                wrapper.appendChild(delBtn);
-                return wrapper;
-            }
-        });
-
-        table.getData().forEach(r => r[colName] = "");
-        table.replaceData(table.getData());
-
-        Toastify({ text: `Column "${colName}" added`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
-
-        modal.classList.add("hidden");
-    });
-   
-   
- 
     
-
-    
-
     // Save Spreadsheet
     document.getElementById("save-btn").addEventListener("click", (e) => {
         e.preventDefault();
