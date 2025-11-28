@@ -1,6 +1,9 @@
 {% extends '../base.html' %}
 {% block content %}
-<h2 class="text-2xl font-semibold"> {% if file %}Edit{% else %}Create{% endif %} Spreadsheet</h2>
+<span class="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider mb-4"><a href="/">Home</a></span>
+<span class="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider mb-4"><a href="/files/lists/">All Files</a></span>
+<span class="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider mb-4">{{file.name}}</span>
+<h1 class="mb-4 text-4xl font-bold tracking-tight text-heading md:text-5xl lg:text-6xl text-teal">{{file.name}}</h1>
 
 <!-- <form method="post" class="my-5">
     {% csrf_token %}
@@ -49,7 +52,7 @@
 <div id="data-json" class="hidden">{{ data_json|safe }}</div>
 
 <!-- Container to output account names + their parent-row data -->
-<h3 class="mt-4 text-lg font-medium">Parent Accounts</h3>
+
 <div id="parent-accounts" class="space-y-2 text-sm"></div>
 
 {% include '../scripts.html' %}

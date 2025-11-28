@@ -3,9 +3,81 @@ from django.http import JsonResponse
 from .models import SpreadsheetFile
 from .forms import SpreadsheetFileForm
 import json
+from collections import defaultdict
+from django.db.models import F
 
 def home(request):
     return render(request, 'index.html')
+
+def file_lists(request):
+    """
+    Retrieves only the top-level (root) files to display a hierarchical structure.
+    Children will be accessed via the 'children' related_name in the template.
+    """
+    
+    # Fetch all files that have NO parent (i.e., they are root/top-level entries)
+    # Order them alphabetically.
+    root_files = SpreadsheetFile.objects.filter(parent__isnull=True).order_by('name')
+
+    # Note: We can simplify the context since we are just passing the root list
+    context = {
+        'files': root_files,  # Renamed for simplicity in the template loop
+    }
+
+    # 4. Render the template
+    return render(request, 'files/type/lists.html', context)
+
+def file_create(request, parent_id=None, file_id=None):
+    """
+    Creates a new spreadsheet file or updates an existing one.
+    - If file_id is provided → update existing file
+    - If parent_id is provided → create child file
+    """
+
+    # Determine if editing existing file or creating new
+    file_instance = None
+    if file_id:
+        file_instance = SpreadsheetFile.objects.filter(pk=file_id).first()
+
+    if request.method == "POST":
+        form = SpreadsheetFileForm(request.POST, instance=file_instance)
+
+        if form.is_valid():
+            saved_file = form.save(commit=False)
+
+            # Detect if NEW file (no primary key yet)
+            is_new_file = saved_file.pk is None
+
+            # Assign parent for NEW CHILD files
+            if is_new_file:
+                if parent_id:
+                    parent_file = SpreadsheetFile.objects.filter(pk=parent_id).first()
+                    if parent_file:
+                        saved_file.parent = parent_file
+                        saved_file.file_type = "child"
+                    else:
+                        saved_file.file_type = "main"
+                else:
+                    saved_file.file_type = "main"
+
+                # Ensure JSON structure exists
+                if not saved_file.data:
+                    saved_file.data = {"columns": [], "rows": []}
+
+            saved_file.save()
+
+            return redirect('file_edit', pk=saved_file.pk)
+
+    else:
+        form = SpreadsheetFileForm(instance=file_instance)
+
+    return render(request, 'files/type/create_file.html', {
+        'form': form,
+        'parent_id': parent_id,
+        'file_instance': file_instance,
+    })
+
+
 
 def file_list(request):
     """List all spreadsheet files"""
@@ -120,3 +192,6 @@ def save_file_data(request, pk):
         return JsonResponse({'status': 'success'})
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+
+def custom_404_view(request, exception):
+    return render(request, "404.html", status=404)

@@ -2,8 +2,12 @@
 export default {
    content: [
     "./files/templates/**/*.{html,js}",
+    "./files/templates/type/*.{py,html}",
     "./files/templates/*.{py,html}",
-    "./files/*.py"
+    "./files/*.py",
+    // accounts
+    "./accounts/templates/accounts/*.{html,js}",
+
 
    ],
    theme: {

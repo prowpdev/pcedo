@@ -7,6 +7,11 @@
         {{ form.as_div|safe }}
     </div>
 </form> -->
+<span class="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider mb-4"><a href="/">Home</a></span>
+<span class="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider mb-4"><a href="/files/lists/">All Files</a></span>
+<span class="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider mb-4">{{file.name}}</span>
+<h1 class="mb-4 text-4xl font-bold tracking-tight text-heading md:text-5xl lg:text-6xl text-teal">{{file.name}}</h1>
+
 {% include '../modals/modal.html' %}
 {% include '../modals/addModal.html' %}
 <!-- Controls -->

@@ -1,0 +1,101 @@
+{% extends '../base.html' %}
+{% block content %}
+
+<!-- Load Tailwind CSS classes (assuming they are not loaded globally in base.html) -->
+<!-- <script src="https://cdn.tailwindcss.com"></script> -->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+  body { font-family: 'Inter', sans-serif; }
+  /* Optional: Custom style for error messages if needed */
+  .errorlist li {
+    @apply text-red-500 text-sm mt-1 list-none p-0;
+  }
+</style>
+
+<div class="flex justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
+  
+  <div class="max-w-4xl w-full bg-white p-8 md:p-12 rounded-2xl shadow-xl border border-gray-200">
+
+    
+    <div class="mb-8">
+      <h2 class="text-3xl font-extrabold text-gray-900">
+        Create New file
+      </h2>
+      <p class="mt-2 text-sm text-gray-600">
+        Record or edit financial data. All changes are subject to audit review.
+      </p>
+    </div>
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <!-- Flex Container for Two-Column Layout (Data Fields) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Loop through form fields to apply custom Tailwind styling -->
+        {% for field in form %}
+          
+          {% comment %}
+            This logic is updated to assume fields from the SpreadsheetFile model (name, file_type, data, parent)
+            and assign full width for the 'name' and 'data' fields for better structure.
+          {% endcomment %}
+
+          <!-- Full-width fields (e.g., Name, Data JSON) -->
+          {% if field.name == 'name' or field.name == 'data' %}
+            <div class="md:col-span-2">
+          {% else %}
+          <!-- Two-column fields (e.g., file_type, parent) -->
+            <div>
+          {% endif %}
+
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+              {{ field.label }}
+            </label>
+            
+            <!-- Check if the field has errors and display them -->
+            {% if field.errors %}
+              <div class="errorlist">{{ field.errors }}</div>
+            {% endif %}
+
+            <!-- Rendering the field with Tailwind classes for a modern look. 
+                 This class works for both input (text, date) and select (dropdown) elements. -->
+            {% if fiel.name == 'file_type'%}
+                {{field}}
+                <label for="file_type">File instruction</label>
+            {% else %}
+                {{field}}
+            {% endif %}
+                
+
+            <!-- Help text display -->
+            {% if field.help_text %}
+              <p class="mt-2 text-xs text-gray-500">{{ field.help_text }}</p>
+            {% endif %}
+            
+          </div>
+
+        {% endfor %}
+
+      </div> <!-- End Grid/Two-Column Layout -->
+
+      <!-- Action Buttons -->
+      <div class="pt-6 border-t border-gray-100 flex justify-end space-x-4">
+        <button type="button" class="px-6 py-3 border border-gray-300 rounded-xl text-base font-medium text-gray-700 bg-white hover:bg-gray-50 transition duration-150 shadow-sm">
+          Cancel
+        </button>
+        <button type="submit" class="px-6 py-3 border border-transparent rounded-xl text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 shadow-lg transform hover:scale-[1.01]">
+          Create File
+        </button>
+      </div>
+      
+    </form>
+    
+    <!-- Note on Django Integration -->
+    <div class="mt-8 p-4 bg-yellow-50 border-l-4 border-yellow-500 text-sm text-yellow-700 rounded-lg">
+        <strong>Information:</strong> Create new Spreadsheet file and select file type and parent.
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

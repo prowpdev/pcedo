@@ -1,0 +1,145 @@
+{% extends './base.html' %}
+{% block content %}
+
+<!-- Load Tailwind CSS classes (assuming they are not loaded globally in base.html) -->
+<!-- <script src="https://cdn.tailwindcss.com"></script> -->
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+    body {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Optional: Custom style for error messages if needed */
+    .errorlist li {
+        @apply text-red-500 text-sm mt-1 list-none p-0;
+    }
+</style>
+
+<div class="min-h-screen flex">
+
+
+    <div class="hidden lg:flex lg:w-1/2 bg-indigo-600 flex-col items-center justify-center p-8 text-white">
+        <div class="max-w-md text-center">
+            <div class="flex items-center justify-center mb-6">
+                <a href="#" class="flex-shrink-0 flex items-center">
+                    <svg class="w-10 h-10 text-white-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    <span class="ml-2 text-xl font-bold text-white-900">AcctSpread</span>
+                </a>
+            </div>
+            <h1 class="text-4xl font-extrabold mb-4">
+                Manage Your Financial Data with Confidence.
+            </h1>
+            <p class="text-lg mb-8">
+                AcctSpread helps businesses streamline accounting workflows, track financial performance,
+                and simplify daily operations — all in one secure and powerful platform.
+            </p>
+
+            <div class="flex items-center justify-center -space-x-2 overflow-hidden mb-4">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                    src="https://randomuser.me/api/portraits/men/32.jpg" alt="User avatar">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                    src="https://randomuser.me/api/portraits/women/44.jpg" alt="User avatar">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                    src="https://randomuser.me/api/portraits/men/45.jpg" alt="User avatar">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                    src="https://randomuser.me/api/portraits/women/68.jpg" alt="User avatar">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                    src="https://randomuser.me/api/portraits/men/78.jpg" alt="User avatar">
+            </div>
+            <p class="text-lg font-semibold">Over <span class="text-yellow-300">15.7k</span> Happy Customers</p>
+        </div>
+    </div>
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-8">
+        <div class="max-w-md w-full">
+
+            <a href="#" class="flex-shrink-0 flex items-center justify-center">
+                <svg class=" text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" height="100">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+
+            </a>
+            <p class="text-5xl sm:text-6xl font-extrabold text-gray-900 leading-tight mb-6 text-indigo-600 text-center"
+                style="">AcctSpread</p>
+
+            <form method="post" class="space-y-5">
+                {% csrf_token %}
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2">Username</label>
+                    {{ form.username }}
+                </div>
+
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2">Password</label>
+
+                    <div class="relative">
+                        {{ form.password }}
+
+                        <!-- Show/Hide Button -->
+                        <button type="button" onclick="togglePassword()"
+                            class="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-gray-700">
+                            <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 block" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+
+                            <svg id="eye-closed" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.269-2.943-9.543-7a9.97 
+                    9.97 0 012.294-4.356m3.187-2.36A9.97 9.97 0 0112 5c4.478 0 
+                    8.269 2.943 9.543 7a9.956 9.956 0 01-4.043 5.313M15 12a3 3 0 
+                    11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18" />
+                            </svg>
+                        </button>
+                    </div>
+                    {% if error_message %}
+                    <p class="text-red-600 text-left mb-4 mt-4">
+                        Invalid username or password
+                    </p>
+                    {% endif %}
+                </div>
+
+
+                <button type="submit"
+                    class="mt-5 w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Login
+                </button>
+            </form>
+
+
+            <p class="mt-6 text-center text-sm text-gray-600">
+                Don't have an account?
+                <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500">Signup here</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    function togglePassword() {
+        const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
+        const eyeOpen = document.getElementById("eye-open");
+        const eyeClosed = document.getElementById("eye-closed");
+
+        if (passwordInput.type === "password") {
+            passwordInput.type = "text";
+            eyeOpen.classList.add("hidden");
+            eyeClosed.classList.remove("hidden");
+        } else {
+            passwordInput.type = "password";
+            eyeOpen.classList.remove("hidden");
+            eyeClosed.classList.add("hidden");
+        }
+    }
+</script>
+{% endblock %}
