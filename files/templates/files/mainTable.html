@@ -3,9 +3,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // ⚙️ Initial Data Setup
     let initialData = {};
     try { initialData = JSON.parse(document.getElementById('data-json').textContent); } 
-    catch(e){ initialData = {columns: [], rows: []}; }
+    catch(e){ initialData = {columns: [], rows: [], formulas:[]}; }
     initialData.columns = initialData.columns || [];
     initialData.rows = initialData.rows || [];
+    initialData.formulas = initialData.formulas || [];
     
     const parentColumns = {{ parent_columns|safe }};
     const parentColumnValues = {{ parent_column_values|safe }};
@@ -554,11 +555,13 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     }
+    // console.log(initialData.formulas);
+    
     // Save Spreadsheet
     document.getElementById("save-btn").addEventListener("click", (e) => {
         e.preventDefault();
         const rows = table.getData();
-        const dataToSave = { columns: initialData.columns, rows: rows };
+        const dataToSave = { columns: initialData.columns, rows: rows, formulas : initialData.formulas };
 
         fetch("{% url 'save_file_data' file.pk %}", {
             method: "POST",
@@ -579,15 +582,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const formulaContainer = document.getElementById('formula-container');
     const addStepBtn = document.getElementById('add-formula-step-btn');
     const generateBtn = document.getElementById('generate-formula-column-btn');
-    let formulaColumns = [];
+    // let formulaColumns = [];
 
     function recalculateFormulaColumns() {
         table.getRows().forEach(row => {
             const rowData = row.getData();
 
-            formulaColumns.forEach(fcol => {
+            initialData.formulas.forEach(fcol => {
                 let expr = "";
-
                 fcol.formulaArray.forEach(item => {
                     if (typeof item === "number") {
                         expr += item;
@@ -804,23 +806,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         
         if (!isValid) return;
-        // Store the formula for future auto calculation
-        formulaColumns.push({
+
+        initialData.formulas.push({
             field: newColName,
             formulaArray: formulaArray
         });
-        console.log('Formulas are:');
-        console.log(formulaColumns);
         
-
-
         const newColObj = { id:"", name: newColName, mapping: "", type: "text", status:false };
         initialData.columns.push(newColObj);
 
-        const config = getColumnDefinition(newColObj);
-        // console.log(initialData);
+        const config = getColumnDefinition(newColObj)
         
-
         // 2. Add Column to Tabulator
         table.addColumn({
             title: newColName,
@@ -851,6 +847,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Build a JavaScript executable expression string
                 // Example: '500 * rowData["col_qty"] + 10'
+             
+                console.log(formulaArray);
+                
                 formulaArray.forEach(item => {
                     if (typeof item === 'number') {
                         calculationString += item; // Manual number
@@ -860,9 +859,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         // Column field name
                         const colValue = parseFloat(rowData[item]) || 0;
                         calculationString += colValue; // Append column value
-                        // console.log(item);
-                        // console.log(rowData);
-                        
                     }
                 });
 
@@ -889,8 +885,8 @@ document.addEventListener('DOMContentLoaded', function () {
             newColNameInput.value = ''; // Clear input
             formulaContainer.innerHTML = ''; // Clear formula
             addFormulaStep(); // Re-initialize the first step
-            // table.replaceData(table.getData());
-            // rebuildTable();
+            table.replaceData(table.getData());
+            rebuildTable();
             
             Toastify({ text: `Column "${newColName}" calculated and added!`, duration: 4000, gravity: "bottom", position: "center", backgroundColor: "#007BFF" }).showToast();
 
@@ -899,6 +895,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error("Tabulator addColumn error:", error);
         });
     });
+    // console.log(initialData.formulas);
 
     // --- Initialization ---
     addStepBtn.addEventListener('click', addFormulaStep);
