@@ -435,80 +435,23 @@ document.addEventListener('DOMContentLoaded', function () {
  * @param {string} reportType - 'Monthly', 'Quarterly', or 'Annual'.
  * @returns {string} The formatted report string.
  */
-function calculateReportContent(numPayment, reportType) {
-    if (isNaN(numPayment) || numPayment <= 0) {
-        return 'No Payment Due';
-    }
+    function calculateReportContent(numPayment, reportType) {
+        if (isNaN(numPayment) || numPayment <= 0) {
+            return 'No Payment Due';
+        }
 
-    let multiplier = 1;
-    let period = reportType;
-    
-    if (reportType === 'Quarterly') {
-        multiplier = 3;
-    } else if (reportType === 'Annual') {
-        multiplier = 12;
-    }
-    
-    const amount = numPayment * multiplier;
-    return `$${amount.toFixed(2)} ${period} Due`;
-}
-// Generate Report
-
-document.getElementById('add-report-column-btn').addEventListener('click', function() {
-    const select = document.getElementById('report-type-select');
-    const reportType = select.value;
-
-    if (!reportType) {
-        alert("Please select a report type first.");
-        return;
-    }
-
-    // Determine the new column's title and field name
-    const columnTitle = `${reportType} Report`;
-    const columnField = columnTitle.replace(/\s/g, '_'); // e.g., 'Quarterly_Report'
-
-    // Check if the column already exists (optional, but good practice)
-    if (table.getColumn(columnField)) {
-        alert(`Column "${columnTitle}" already exists!`);
-        return;
-    }
-
-    // --- 1. Add the Column to Tabulator ---
-    // Tabulator's 'addColumn' method
-    table.addColumn({
-        title: columnTitle,
-        field: columnField,
-        hozAlign: 'center',
-        headerHozAlign: 'center',
-        // Optional: Add other properties like editor, formatter, etc.
-    }, false) // 'false' adds it to the right of existing columns
-    .then(() => {
-        // --- 2. Generate and Populate Data for the New Column ---
-        const PAYMENT_FIELD = 'Premium Amount'; // Use your existing payment field name
+        let multiplier = 1;
+        let period = reportType;
         
-        table.getRows().forEach(row => {
-            const rowData = row.getData(); 
-            const paymentValue = rowData[PAYMENT_FIELD]; 
-            const numPayment = parseFloat(paymentValue);
-            
-            // Calculate content using the helper function
-            const reportContent = calculateReportContent(numPayment, reportType);
-            
-            // Update the new field in the row data
-            row.update({ 
-                [columnField]: reportContent 
-            });
-        });
+        if (reportType === 'Quarterly') {
+            multiplier = 3;
+        } else if (reportType === 'Annual') {
+            multiplier = 12;
+        }
         
-        // Reset the select option
-        select.value = "";
-        
-        Toastify({ text: `Successfully added and populated the ${columnTitle} column.`, duration: 3000, gravity: "bottom", position: "center", backgroundColor: "#38A169" }).showToast();
-    })
-    .catch(error => {
-        console.error("Error adding dynamic column:", error);
-    });
-});
+        const amount = numPayment * multiplier;
+        return `$${amount.toFixed(2)} ${period} Due`;
+    }
 
     function generateRowId() {
         return 'row_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -583,10 +526,10 @@ document.getElementById('add-report-column-btn').addEventListener('click', funct
             editorParams: config.editorParams,
             formatter: config.formatter,     // Reused logic
             mutator: config.mutator,         // Reused logic
-            headerSort: true,
-            resizable: true,
             hozAlign: config.hozAlign,
             headerHozAlign: config.hozAlign,
+            headerSort: true,
+            resizable: true,
             // 🔥 REUSABLE CALL 2: Get complex title formatter,
             titleFormatter: createTitleFormatter(colId,colName, mapping, type, rebuildTable,isColumnActive ),
             headerMenu:hideColOption(rebuildTable)
@@ -611,12 +554,6 @@ document.getElementById('add-report-column-btn').addEventListener('click', funct
             });
         }
     }
-    // Create custom functions
-   
-  
-    
-
-    
     // Save Spreadsheet
     document.getElementById("save-btn").addEventListener("click", (e) => {
         e.preventDefault();
@@ -637,5 +574,334 @@ document.getElementById('add-report-column-btn').addEventListener('click', funct
     });
 
     window.addEventListener("resize", () => table.redraw(true));
+    // ##################################################################################################
+
+    const formulaContainer = document.getElementById('formula-container');
+    const addStepBtn = document.getElementById('add-formula-step-btn');
+    const generateBtn = document.getElementById('generate-formula-column-btn');
+    let formulaColumns = [];
+
+    function recalculateFormulaColumns() {
+        table.getRows().forEach(row => {
+            const rowData = row.getData();
+
+            formulaColumns.forEach(fcol => {
+                let expr = "";
+
+                fcol.formulaArray.forEach(item => {
+                    if (typeof item === "number") {
+                        expr += item;
+                    } else if (["+", "-", "*", "/"].includes(item)) {
+                        expr += item;
+                    } else {
+                        expr += (parseFloat(rowData[item]) || 0);
+                    }
+                });
+
+                let result = 0;
+                try {
+                    result = eval(expr);
+                } catch(e) {
+                    result = "ERR";
+                }
+
+                row.update({ [fcol.field]: typeof result === "number" ? result.toFixed(2) : result });
+            });
+        });
+    }
+   table.on("cellEdited", function (cell) {
+        let el = cell.getElement();
+
+        // 🔥 Add highlight class
+        el.classList.add("cell-highlight");
+
+        // ⏳ Remove highlight after 2 seconds (optional)
+        setTimeout(() => {
+            el.classList.remove("cell-highlight");
+        }, 2000);
+
+        recalculateFormulaColumns();
+    });
+
+
+    table.on("rowAdded", function() {
+        recalculateFormulaColumns();
+    });
+
+
+
+    function highlightGeneratedColumn(fieldName) {
+        // Highlight header
+        const column = table.getColumn(fieldName);
+        if (!column) return;
+
+        const headerEl = column.getElement();
+        headerEl.classList.add("col-new-highlight");
+
+        setTimeout(() => {
+            headerEl.classList.remove("col-new-highlight");
+        }, 2000);
+
+        // Highlight all cells
+        const cells = column.getCells();
+        cells.forEach(cell => {
+            const el = cell.getElement();
+            el.classList.add("col-new-highlight");
+
+            setTimeout(() => {
+                el.classList.remove("col-new-highlight");
+            }, 2000);
+        });
+    }
+
+
+
+
+    // --- Helper 1: Get Available Column Fields ---
+    function getColumnFields() {
+        if (typeof table === 'undefined') return [];
+        // Filter out control columns and return fields/titles
+        return table.getColumns().map(col => {
+            const field = col.getField();
+            const title = col.getDefinition().title;
+            // Use field as value, and title as display text
+            return { field: field, title: title };
+        }).filter(c => c.field); // Filter out columns without a field (like control column)
+    }
+
+    // --- Helper 2: Create a Dropdown for Columns/Values ---
+    function createSelectElement(type, fields, isOperator = false) {
+        const select = document.createElement('select');
+        select.classList.add('p-2', 'border', 'rounded', 'flex-1');
+        select.setAttribute('data-type', type);
+
+        if (isOperator) {
+            select.innerHTML = `
+                <option value="*" selected>Multiply (*)</option>
+                <option value="+">Add (+)</option>
+                <option value="-">Subtract (-)</option>
+                <option value="/">Divide (/)</option>
+            `;
+        } else {
+            select.innerHTML = '<option value="" disabled selected>Select Column/Value</option>';
+            fields.forEach(f => {
+                // Use the field name as the value
+                select.innerHTML += `<option value="${f.field}">${f.title}</option>`;
+            });
+            // Option to enter a manual value instead
+            select.innerHTML += `<option value="MANUAL_INPUT">Manual Number</option>`;
+        }
+        
+        // Add event listener to handle manual input toggle
+        select.addEventListener('change', function() {
+            const stepDiv = select.closest('.formula-step');
+            const manualInput = stepDiv ? stepDiv.querySelector('.manual-input') : null;
+
+            if (manualInput) {
+                manualInput.classList.toggle('hidden', select.value !== 'MANUAL_INPUT');
+                // Set placeholder for manual input
+                if (select.value === 'MANUAL_INPUT') {
+                    manualInput.placeholder = "Enter number";
+                }
+            }
+        });
+        return select;
+    }
+
+    // --- Core 1: Add Formula Step to UI ---
+    function addFormulaStep() {
+        const fields = getColumnFields();
+        const stepDiv = document.createElement('div');
+        stepDiv.classList.add('formula-step', 'flex', 'gap-2', 'items-center');
+
+        // Initial variable/column selection (always required for the first element)
+        if (formulaContainer.children.length === 0) {
+            const colSelect = createSelectElement('variable', fields);
+            stepDiv.appendChild(colSelect);
+        } else {
+            // Operator for subsequent steps
+            const opSelect = createSelectElement('operator', [], true);
+            stepDiv.appendChild(opSelect);
+
+            // Variable/column selection after the operator
+            const colSelect = createSelectElement('variable', fields);
+            stepDiv.appendChild(colSelect);
+        }
+        
+        // Manual input text box (initially hidden)
+        const manualInput = document.createElement('input');
+        manualInput.type = 'number';
+        manualInput.classList.add('p-2', 'border', 'rounded', 'flex-1', 'manual-input', 'hidden');
+        manualInput.setAttribute('data-type', 'manual-value');
+        stepDiv.appendChild(manualInput);
+
+
+        // Remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '➖';
+        removeBtn.classList.add('px-2', 'py-1', 'text-lg', 'bg-red-500', 'text-white', 'rounded', 'hover:bg-red-600', 'transition');
+        removeBtn.addEventListener('click', () => {
+            stepDiv.remove();
+        });
+        stepDiv.appendChild(removeBtn);
+
+        formulaContainer.appendChild(stepDiv);
+    }
+
+    // --- Core 2: Parse and Calculate the Formula ---
+    generateBtn.addEventListener('click', function() {
+        const newColNameInput = document.getElementById('new-column-name');
+        const newColName = newColNameInput.value.trim();
+
+        if (!newColName) {
+            alert("Please enter a name for the new calculated column.");
+            return;
+        }
+
+        if (table.getColumn(newColName)) {
+            alert(`Column "${newColName}" already exists!`);
+            return;
+        }
+
+        const formulaElements = formulaContainer.querySelectorAll('.formula-step');
+        if (formulaElements.length === 0) {
+            alert("Please define a calculation formula.");
+            return;
+        }
+
+        // 1. Extract the formula structure (e.g., ["col1", "*", "col2", "+", "5"])
+        const formulaArray = [];
+        let isValid = true;
+        
+        formulaElements.forEach(step => {
+            const variableSelect = step.querySelector('[data-type="variable"]');
+            const operatorSelect = step.querySelector('[data-type="operator"]');
+            const manualInput = step.querySelector('[data-type="manual-value"]');
+
+            // Add operator if it exists
+            if (operatorSelect) {
+                formulaArray.push(operatorSelect.value);
+            }
+
+            // Add variable/value
+            if (variableSelect) {
+                if (variableSelect.value === 'MANUAL_INPUT') {
+                    const manualValue = parseFloat(manualInput.value);
+                    if (isNaN(manualValue)) {
+                        alert("Manual input must be a valid number.");
+                        isValid = false;
+                        return;
+                    }
+                    formulaArray.push(manualValue);
+                } else if (variableSelect.value) {
+                    formulaArray.push(variableSelect.value); // Column Field Name
+                } else {
+                    alert("Please select a column or manual value.");
+                    isValid = false;
+                    return;
+                }
+            }
+        });
+        
+        if (!isValid) return;
+        // Store the formula for future auto calculation
+        formulaColumns.push({
+            field: newColName,
+            formulaArray: formulaArray
+        });
+        console.log('Formulas are:');
+        console.log(formulaColumns);
+        
+
+
+        const newColObj = { id:"", name: newColName, mapping: "", type: "text", status:false };
+        initialData.columns.push(newColObj);
+
+        const config = getColumnDefinition(newColObj);
+        // console.log(initialData);
+        
+
+        // 2. Add Column to Tabulator
+        table.addColumn({
+            title: newColName,
+            field: newColName,
+            editor: false,
+            editorParams: config.editorParams,
+            formatter: config.formatter,     // Reused logic
+            mutator: config.mutator,         // Reused logic
+            hozAlign: config.hozAlign,
+            headerHozAlign: config.hozAlign,
+            hozAlign: 'left',
+            formatter: "money", // Use a money formatter for calculation results
+            formatterParams: {
+                // symbol: "$",
+                precision: 2,
+            },
+            titleFormatter: createTitleFormatter("",newColName, "custom", "text", rebuildTable,false ),
+            headerMenu:hideColOption(rebuildTable)
+        }, false)
+        .then(() => {
+            
+            // 3. Calculate and Update Data for each row
+            table.getRows().forEach(row => {
+                const rowData = row.getData(); 
+                let calculationString = '';
+                // console.log(formulaArray);
+                
+
+                // Build a JavaScript executable expression string
+                // Example: '500 * rowData["col_qty"] + 10'
+                formulaArray.forEach(item => {
+                    if (typeof item === 'number') {
+                        calculationString += item; // Manual number
+                    } else if (['+', '-', '*', '/'].includes(item)) {
+                        calculationString += item; // Operator
+                    } else {
+                        // Column field name
+                        const colValue = parseFloat(rowData[item]) || 0;
+                        calculationString += colValue; // Append column value
+                        // console.log(item);
+                        // console.log(rowData);
+                        
+                    }
+                });
+
+                let result = 0;
+                try {
+                    // Use eval() carefully! Since the inputs are controlled by select boxes, 
+                    // the risk is minimized, but in production, a safer math library is recommended.
+                    result = eval(calculationString); 
+                    
+                } catch (e) {
+                    console.error("Formula calculation error:", e, "Formula string:", calculationString);
+                    result = "Error";
+                }
+                
+                // Update the new column with the result
+                row.update({ 
+                    [newColName]: (typeof result === 'number' ? result.toFixed(2) : result)
+                });
+                highlightGeneratedColumn(newColName);
+
+                
+            });
+
+            newColNameInput.value = ''; // Clear input
+            formulaContainer.innerHTML = ''; // Clear formula
+            addFormulaStep(); // Re-initialize the first step
+            // table.replaceData(table.getData());
+            // rebuildTable();
+            
+            Toastify({ text: `Column "${newColName}" calculated and added!`, duration: 4000, gravity: "bottom", position: "center", backgroundColor: "#007BFF" }).showToast();
+
+        })
+        .catch(error => {
+            console.error("Tabulator addColumn error:", error);
+        });
+    });
+
+    // --- Initialization ---
+    addStepBtn.addEventListener('click', addFormulaStep);
+    addFormulaStep(); // Initialize with the first step (Variable/Value)
 });
 </script>

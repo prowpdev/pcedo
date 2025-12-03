@@ -52,19 +52,26 @@
 </div>
 <!-- Report Generation -->
 <div class="reports">
-    <div class="flex gap-2 items-center mb-2">
-        <select id="report-type-select" class="p-2 border rounded">
-    <option value="" disabled selected>Select Report Type</option>
-    <option value="Monthly">Monthly Report</option>
-    <option value="Quarterly">Quarterly Report</option>
-    <option value="Annual">Annual Report</option>
-</select>
+    <div class="flex flex-col gap-3 p-4 bg-gray-50 border rounded-lg">
+        <h4 class="text-lg font-semibold text-gray-700">Formula Builder</h4>
 
-<button id="add-report-column-btn" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition ml-3">
-    Add Report Column
-</button>
+        <input type="text" id="new-column-name" placeholder="Name of new calculated column (e.g., Total_Premium)"
+               class="p-2 border rounded focus:ring-2 focus:ring-blue-400 focus:outline-none w-full mb-2">
+
+        <div id="formula-container" class="flex flex-col gap-3">
+            </div>
+
+        <div class="flex gap-2 mt-2">
+            <button id="add-formula-step-btn" class="btn bg-green-600 text-white px-3 py-2 rounded px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition">
+                + Add Variable/Operation
+            </button>
+            <button id="generate-formula-column-btn" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition">
+                Calculate & Add Column
+            </button>
+        </div>
     </div>
 </div>
+
 <!--  -->
 <!-- /Controls -->
 <!-- Table container -->
