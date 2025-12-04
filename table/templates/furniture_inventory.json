@@ -1,0 +1,13 @@
+[
+    {"name":"Product Name","mapping":"custom","type":"text","isColumnActive":false},
+    {"name":"Product Type","mapping":"custom","type":"text","isColumnActive":false},
+    {"name":"Dimensions","mapping":"custom","type":"text","isColumnActive":false},
+    {"name":"Price","mapping":"custom","type":"number","isColumnActive":false},
+    {"name":"Total Order","mapping":"custom","type":"number","isColumnActive":false},
+    {"name":"Date Order","mapping":"custom","type":"date","isColumnActive":false},
+    {"name":"DP Amount","mapping":"custom","type":"number","isColumnActive":false},
+    {"name":"Start Date","mapping":"custom","type":"date","isColumnActive":false},
+    {"name":"End Date","mapping":"custom","type":"date","isColumnActive":false},
+    {"name":"Order Status","mapping":"custom","type":"text","isColumnActive":false},
+    {"name":"Payment Status","mapping":"custom","type":"date","isColumnActive":false}
+]

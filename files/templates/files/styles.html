@@ -1,31 +1,35 @@
 <style>
     .col-new-highlight {
-    background-color: #d1ffd1 !important;  /* pale green */
-    transition: background-color 0.7s ease-out;
-}
+        background-color: #d1ffd1 !important;
+        /* pale green */
+        transition: background-color 0.7s ease-out;
+    }
 
-    
+
     .cell-highlight {
-        background-color: #fff3b0 !important; /* light yellow */
+        background-color: #fff3b0 !important;
+        /* light yellow */
         transition: background-color 1s ease;
     }
 
-    .trash-btn-col{
+    .trash-btn-col {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 6px;
     }
-    .trash-btn{
+
+    .trash-btn {
         margin-left: 6px;
         cursor: pointer;
-        padding:2px 6px;
+        padding: 2px 6px;
         border: none;
         border-radius: 4px;
         background: #e53935;
         color: #fff;
 
     }
+
     .btn {
         cursor: pointer;
     }
@@ -64,10 +68,12 @@
         width: 16px;
         height: 16px;
     }
-    .tabulator-row.tabulator-selected{
+
+    .tabulator-row.tabulator-selected {
         background-color: #107c39 !important;
     }
-    .add-col-modal{
+
+    .add-col-modal {
         position: absolute;
         left: 50%;
         top: 0;
@@ -75,4 +81,44 @@
         width: 35% !important;
         max-width: 45%;
     }
+.select-step {
+    padding-left: 0.75rem;      /* px-3 */
+    padding-right: 0.75rem;
+
+    padding-top: 0.375rem;      /* py-1.5 */
+    padding-bottom: 0.375rem;
+
+    border: 1px solid #d1d5db;  /* border + border-gray-300 */
+    border-radius: 0.5rem;      /* rounded-lg */
+
+    background-color: #ffffff;  /* bg-white */
+
+    font-size: 0.75rem;         /* text-xs → 12px */
+    line-height: 1rem;          /* Tailwind's text-xs line-height */
+}
+
+.select-step:focus {
+    outline: none;
+    border-color: #3b82f6;      /* focus:border-blue-500 */
+    box-shadow: 0 0 0 1px #3b82f6; /* focus:ring-1 + ring-blue-500 */
+}
+.remove-step-btn {
+    margin-left: 6px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border: none;
+        border-radius: 4px;
+        background: #e53935;
+        color: #fff;
+}
+
+.remove-step-btn:hover {
+    background-color: #dc2626;   /* hover:bg-red-600 */
+}
+.formula-step{
+    flex-wrap: wrap;
+}
+
+
+
 </style>

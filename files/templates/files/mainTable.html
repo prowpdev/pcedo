@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (colInputType === "date") {
             config.editor = "date";
+            config.hozAlign = "right";
             config.editorParams = {
                 // format: "mm dd yyyy", 
                 datepicker: { showOn: "cell" }
@@ -42,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } 
         else if (colInputType === "number") {
             config.editor = "input";
-            config.hozAlign = "right";
+            config.hozAlign = "left";
             config.editorParams = {
                 type: "number",
                 step: "any" 
@@ -117,6 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
             delBtn.addEventListener("click", () => {
                 if (!confirm(`Delete column "${colName}"?`)) return;
                 const idx = initialData.columns.findIndex(c => c.name === colName);
+               
                 if (idx > -1) initialData.columns.splice(idx, 1);
                 rebuildTable();
             });
@@ -256,6 +258,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (idx > -1) {
                     initialData.columns.splice(idx, 1);
                 }
+
+               let fIdx = initialData.formulas.findIndex(f => f.field === colName);
+
+                if (fIdx > -1) {
+                    initialData.formulas.splice(fIdx, 1);
+                }
+
                 rebuildTable(); 
                 Toastify({ text: `Column "${colName}" deleted`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#e53935" }).showToast();
             }
@@ -373,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function () {
         paginationSizeSelector:[10,20,50,100],
         movableColumns:true,
         paginationCounter:"rows",
-        height: "505px",
+        height: "700px",
         placeholder: "No Data Available",
         // rowContextMenu: rowMenu, //add context menu to rows
        
@@ -719,14 +728,17 @@ document.addEventListener('DOMContentLoaded', function () {
         // Initial variable/column selection (always required for the first element)
         if (formulaContainer.children.length === 0) {
             const colSelect = createSelectElement('variable', fields);
+            colSelect.classList.add('select-step')
             stepDiv.appendChild(colSelect);
         } else {
             // Operator for subsequent steps
             const opSelect = createSelectElement('operator', [], true);
+            opSelect.classList.add('select-step')
             stepDiv.appendChild(opSelect);
 
             // Variable/column selection after the operator
             const colSelect = createSelectElement('variable', fields);
+            colSelect.classList.add('select-step')
             stepDiv.appendChild(colSelect);
         }
         
@@ -734,14 +746,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const manualInput = document.createElement('input');
         manualInput.type = 'number';
         manualInput.classList.add('p-2', 'border', 'rounded', 'flex-1', 'manual-input', 'hidden');
+        manualInput.classList.add('select-step')
         manualInput.setAttribute('data-type', 'manual-value');
         stepDiv.appendChild(manualInput);
 
 
         // Remove button
         const removeBtn = document.createElement('button');
-        removeBtn.innerHTML = '➖';
-        removeBtn.classList.add('px-2', 'py-1', 'text-lg', 'bg-red-500', 'text-white', 'rounded', 'hover:bg-red-600', 'transition');
+        removeBtn.classList.add('remove-step-btn','trash-btn')
+        removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4"></path>
+                </svg>`;
+        // removeBtn.classList.add('px-2', 'py-1', 'text-lg', 'bg-red-500', 'text-white', 'rounded', 'hover:bg-red-600', 'transition');
         removeBtn.addEventListener('click', () => {
             stepDiv.remove();
         });
@@ -882,9 +898,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 
             });
 
-            newColNameInput.value = ''; // Clear input
-            formulaContainer.innerHTML = ''; // Clear formula
-            addFormulaStep(); // Re-initialize the first step
+            newColNameInput.value = ''; 
+            formulaContainer.innerHTML = ''; 
+            addFormulaStep(); 
             table.replaceData(table.getData());
             rebuildTable();
             
@@ -895,10 +911,106 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error("Tabulator addColumn error:", error);
         });
     });
-    // console.log(initialData.formulas);
+    console.log(initialData.formulas);
 
-    // --- Initialization ---
+   
     addStepBtn.addEventListener('click', addFormulaStep);
-    addFormulaStep(); // Initialize with the first step (Variable/Value)
+    addFormulaStep(); 
+
+    var sidebarToggle = document.getElementById('sidebar-toggle-btn');
+    const sidebarEl = document.getElementById('sidebar')
+    const mainContentEl = document.getElementById('main-content-area')
+    sidebarToggle.addEventListener('click',function(){
+        sidebarEl.classList.toggle('hidden')
+        mainContentEl.classList.toggle('lg:col-span-9')
+        mainContentEl.classList.toggle('lg:col-span-12')
+        rebuildTable()
+    })
+
+    /**
+     * Auto add Column Title
+     */
+    function generateColumnTitle(columnNames){
+        columnNames.forEach(item=>{
+            let colId = generateRowId();
+            const newColObj = { id:colId, name: item.name, mapping: item.mapping, type: item.type, status:item.isColumnActive };
+            initialData.columns.push(newColObj);
+    
+            // 🔥 REUSABLE CALL 1: Get editor/formatter config
+            const config = getColumnDefinition(newColObj);
+            
+            table.addColumn({
+                title: `${item.name} (${item.mapping})`,
+                field: item.name,
+                editor: config.editor,
+                editorParams: config.editorParams,
+                formatter: config.formatter,     // Reused logic
+                mutator: config.mutator,         // Reused logic
+                hozAlign: config.hozAlign,
+                headerHozAlign: config.hozAlign,
+                headerSort: true,
+                resizable: true,
+                // 🔥 REUSABLE CALL 2: Get complex title formatter,
+                titleFormatter: createTitleFormatter(colId,item.name, item.mapping, item.type, rebuildTable,item.isColumnActive ),
+                headerMenu:hideColOption(rebuildTable)
+            });
+    
+            table.getData().forEach(r => r[item.name] = "");
+            table.replaceData(table.getData());
+            Toastify({ text: `Column "${item.name}" added`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
+        })
+
+    }
+    const importTemplateBtn = document.getElementById('import-template');
+    importTemplateBtn.addEventListener('click', function () {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json";
+        input.onchange = function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                try {
+                    const jsonData = JSON.parse(event.target.result);
+                    if (!Array.isArray(jsonData)) {
+                        Toastify({
+                            text: "Invalid template format: expected array",
+                            backgroundColor: "red"
+                        }).showToast();
+                        return;
+                    }
+                    generateColumnTitle(jsonData);
+                    Toastify({
+                        text: "Template imported successfully!",
+                        backgroundColor: "#2ecc71"
+                    }).showToast();
+
+                } catch (error) {
+                    console.error(error);
+                    Toastify({
+                        text: "Error reading JSON file",
+                        backgroundColor: "red"
+                    }).showToast();
+                }
+            };
+
+            reader.readAsText(file);
+        };
+
+        input.click();
+    });
+    const addRowDataBtn =  document.getElementById('add-row-data');
+    addRowDataBtn.addEventListener('click',function(){
+        addTableDataRows()
+    })
+    function addTableDataRows(){
+        // for (let i=0;i<numRows;i++){
+        const newRow = { rowId: generateRowId() };
+        initialData.columns.forEach(c => newRow[c.name] = "");
+        table.addRow(newRow);
+        // }
+    }
+// end DOMContentLoaded
 });
 </script>
