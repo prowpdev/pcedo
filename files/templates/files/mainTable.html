@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const parentColumnValues = {{ parent_column_values|safe }};
     let firstColFrozen = true;
     let table; // Declare table globally for reusability
-    let isColumnActive = false;
+    let isColumnHidden = false;
     let colId = "";
 
     // --- REUSABLE FUNCTION: CORE COLUMN LOGIC (Editors/Formatters/Mutators) ---
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
             config.editor = "list";
             config.editorParams = {
                 valuesLookup: "active",
-                valuesLookupField: colName,
+                valuesLookupField: "Options Sample",
                 clearable: true,
                 multiselect: false,
                 autocomplete: true,
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function () {
      * @param {function} rebuildTable - The function to call after column deletion.
      * @returns {function} Tabulator titleFormatter function.
      */
-    function createTitleFormatter(colId,colName, mapping, colInputType, rebuildTable,isColumnActive) {
+    function createTitleFormatter(colId,colName, mapping, colInputType, rebuildTable,isColumnHidden) {
         return function() {
             const wrapper = document.createElement("div");
             wrapper.classList.add('trash-btn-col');
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return menu;
     };
     function hideOrShowColumn(column,status){
-        isColumnActive = status
+        isColumnHidden = status
         // update status of the column
         const colName = column.getField();
         const idx = initialData.columns.findIndex(c => c.name === colName);
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 editableTitle: false,  
                 visible: !isHidden,
                 // 🔥 REUSABLE CALL 2: Get complex title formatter
-                titleFormatter: createTitleFormatter(colId,colName, mapping, colInputType, rebuildTable,isColumnActive),
+                titleFormatter: createTitleFormatter(colId,colName, mapping, colInputType, rebuildTable,isColumnHidden),
                 headerMenu:hideColOption(rebuildTable)
                
             });
@@ -523,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const type = colInputType.value
         const colId = colIdInput.value
     
-        const newColObj = { id:colId, name: colName, mapping: mapping, type: type, status:isColumnActive };
+        const newColObj = { id:colId, name: colName, mapping: mapping, type: type, status:isColumnHidden };
         initialData.columns.push(newColObj);
 
         // 🔥 REUSABLE CALL 1: Get editor/formatter config
@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function () {
             headerSort: true,
             resizable: true,
             // 🔥 REUSABLE CALL 2: Get complex title formatter,
-            titleFormatter: createTitleFormatter(colId,colName, mapping, type, rebuildTable,isColumnActive ),
+            titleFormatter: createTitleFormatter(colId,colName, mapping, type, rebuildTable,isColumnHidden ),
             headerMenu:hideColOption(rebuildTable)
         });
 
@@ -570,6 +570,10 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById("save-btn").addEventListener("click", (e) => {
         e.preventDefault();
         const rows = table.getData();
+        const columns = table.getColumns(true).map(col => col.getDefinition());
+        console.log(columns);
+        // e.preventDefault()
+        
         const dataToSave = { columns: initialData.columns, rows: rows, formulas : initialData.formulas };
 
         fetch("{% url 'save_file_data' file.pk %}", {
@@ -933,7 +937,13 @@ document.addEventListener('DOMContentLoaded', function () {
     function generateColumnTitle(columnNames){
         columnNames.forEach(item=>{
             let colId = generateRowId();
-            const newColObj = { id:colId, name: item.name, mapping: item.mapping, type: item.type, status:item.isColumnActive };
+            console.log(item.isColumnHidden);
+            let isColumnHidden = false;
+            
+            if(item.isColumnHidden == null){
+                isColumnHidden = false;
+            }
+            const newColObj = { id:colId, name: item.name, mapping: item.mapping, type: item.type, status:item.isColumnHidden };
             initialData.columns.push(newColObj);
     
             // 🔥 REUSABLE CALL 1: Get editor/formatter config
@@ -954,7 +964,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 titleFormatter: createTitleFormatter(colId,item.name, item.mapping, item.type, rebuildTable,item.isColumnActive ),
                 headerMenu:hideColOption(rebuildTable)
             });
-    
+            
             table.getData().forEach(r => r[item.name] = "");
             table.replaceData(table.getData());
             Toastify({ text: `Column "${item.name}" added`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
@@ -1011,6 +1021,116 @@ document.addEventListener('DOMContentLoaded', function () {
         table.addRow(newRow);
         // }
     }
+    /**
+     * Import CSV
+     */
+    function importCSVFile(file) {
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function (event) {
+        const csvText = event.target.result;
+
+        // Parse CSV into lines
+        const lines = csvText.trim().split(/\r?\n/);
+        if (lines.length < 2) {
+            Toastify({ text: "CSV must have header and at least one row", backgroundColor: "red" }).showToast();
+            return;
+        }
+
+        // Step 1: Get headers from first line
+        const headers = lines[0].split(",").map(h => h.trim());
+
+        // Step 2: Create columns dynamically
+        const columns = headers.map(header => ({
+            name: header,
+            mapping: "custom",
+            type: "text",       // Default type as text; you can detect numeric/date if needed
+            isColumnActive: false
+        }));
+
+        // Import columns
+        generateColumnTitle(columns);
+
+        // Step 3: Parse remaining lines as row data
+        const rows = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(",");
+            const row = { rowId: generateRowId() };
+
+            headers.forEach((header, idx) => {
+                row[header] = values[idx] ? values[idx].trim() : "";
+            });
+
+            rows.push(row);
+        }
+
+        // Step 4: Add rows to table
+        importRowData(rows);
+        
+
+        Toastify({ text: "CSV imported successfully!", backgroundColor: "#2ecc71" }).showToast();
+    };
+
+    reader.readAsText(file);
+}
+const importCSVBtn = document.getElementById('import-csv');
+
+importCSVBtn.addEventListener('click', function () {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv,text/csv";
+
+    input.onchange = function (e) {
+        const file = e.target.files[0];
+        importCSVFile(file);
+    };
+
+    input.click();
+});
+
+
+function importRowData(rows) {
+    if (!Array.isArray(rows)) {
+        Toastify({
+            text: "Row data must be an array",
+            backgroundColor: "red"
+        }).showToast();
+        return;
+    }
+
+    rows.forEach(row =>{
+        // initialData.rows.push(row)
+        table.addRow(row)
+        saveCurrentTableData()
+        // console.log(row);
+        
+    }
+);
+
+    Toastify({
+        text: "Rows imported successfully!",
+        backgroundColor: "#2ecc71"
+    }).showToast();
+    // adjustTableColumns();
+    // table.getData().forEach(r => r[colName] = "");
+    // console.log(table.getData());
+    // table.replaceData(table.getData());
+    // rebuildTable()
+
+}
+function saveCurrentTableData(){
+    const rows = table.getData();
+    console.log(rows);
+    table.updateData()
+    // initialData.rows.push(rows)
+    // rebuildTable()
+    
+}
+
+
 // end DOMContentLoaded
 });
 </script>
