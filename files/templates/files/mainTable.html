@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
             config.editor = "list";
             config.editorParams = {
                 valuesLookup: "active",
-                valuesLookupField: "Options Sample",
+                valuesLookupField: colName,
                 clearable: true,
                 multiselect: false,
                 autocomplete: true,
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 editorParams: config.editorParams,
                 formatter: config.formatter, 
                 mutator: config.mutator,   
-                headerSort: true,
+                headerSort: false,
                 hozAlign: config.hozAlign,
                 headerHozAlign: config.hozAlign,
                 resizable: true,
@@ -372,6 +372,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Tabulator Instance Initialization ---
     table = new Tabulator("#tabulator-table", {
         data: initialData.rows,
+        editTriggerEvent:"doubleclick",
+        selectableRange:1,
+        selectableRangeColumns:true,
+        selectableRangeRows:true,
+        selectableRangeClearCells:true,
         columns: buildColumns(false),
         layout: window.innerWidth <= 768 ? "fitDataStretch" : "fitColumns",
         reactiveData: true,
@@ -384,9 +389,12 @@ document.addEventListener('DOMContentLoaded', function () {
         paginationCounter:"rows",
         height: "700px",
         placeholder: "No Data Available",
+        history:true,
+        selectableRows: true, // or an integer limit
+        selectableRowsRangeMode: "click", // Enable Shift + Click range selection
         // rowContextMenu: rowMenu, //add context menu to rows
-       
-        cellEdited: function(cell){
+
+          cellEdited: function(cell){
             const rowData = cell.getRow().getData();
             const field = cell.getField();
             const newValue = cell.getValue();
@@ -404,7 +412,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
      
+//undo button
+// document.getElementById("history-undo").addEventListener("click", function(){
+//   table.undo();
+// });
 
+// //redo button
+// document.getElementById("history-redo").addEventListener("click", function(){
+//    table.redo();
+// });
     function populateFilterColumns() {
         const filterFieldSelect = document.getElementById("filter-field");
         filterFieldSelect.innerHTML = `<option value="">-- Select Column --</option>`;
@@ -571,7 +587,7 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         const rows = table.getData();
         const columns = table.getColumns(true).map(col => col.getDefinition());
-        console.log(columns);
+        // console.log(columns);
         // e.preventDefault()
         
         const dataToSave = { columns: initialData.columns, rows: rows, formulas : initialData.formulas };
@@ -626,19 +642,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
    table.on("cellEdited", function (cell) {
         let el = cell.getElement();
-
-        // 🔥 Add highlight class
+        console.log(cell);
         el.classList.add("cell-highlight");
-
-        // ⏳ Remove highlight after 2 seconds (optional)
         setTimeout(() => {
             el.classList.remove("cell-highlight");
         }, 2000);
 
         recalculateFormulaColumns();
     });
-
-
     table.on("rowAdded", function() {
         recalculateFormulaColumns();
     });
@@ -915,7 +926,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error("Tabulator addColumn error:", error);
         });
     });
-    console.log(initialData.formulas);
+    // console.log(initialData.formulas);
 
    
     addStepBtn.addEventListener('click', addFormulaStep);
@@ -924,6 +935,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var sidebarToggle = document.getElementById('sidebar-toggle-btn');
     const sidebarEl = document.getElementById('sidebar')
     const mainContentEl = document.getElementById('main-content-area')
+    sidebarEl.classList.toggle('hidden')
+    mainContentEl.classList.toggle('lg:col-span-9')
+    mainContentEl.classList.toggle('lg:col-span-12')
     sidebarToggle.addEventListener('click',function(){
         sidebarEl.classList.toggle('hidden')
         mainContentEl.classList.toggle('lg:col-span-9')
@@ -934,43 +948,50 @@ document.addEventListener('DOMContentLoaded', function () {
     /**
      * Auto add Column Title
      */
-    function generateColumnTitle(columnNames){
-        columnNames.forEach(item=>{
-            let colId = generateRowId();
-            console.log(item.isColumnHidden);
-            let isColumnHidden = false;
+    function generateColumnTitle(columnNames) {
+    columnNames.forEach(item => {
+        // 1. Check if a column with this 'field' (item.name) already exists
+        const existingColumn = table.getColumn(item.name);
+        if (existingColumn) {
+            Toastify({ text: `Column "${item.name}" already exists. Skipping column addition.`, duration: 3000, gravity: "top", position: "right"}).showToast();
             
-            if(item.isColumnHidden == null){
-                isColumnHidden = false;
-            }
-            const newColObj = { id:colId, name: item.name, mapping: item.mapping, type: item.type, status:item.isColumnHidden };
+        } else {    
+            let colId = generateRowId();
+            let isColumnHidden = false; // Note: 'item.status' is used below, check if this is correct.
+
+            const newColObj = { 
+                id: colId, 
+                name: item.name, 
+                mapping: item.mapping, 
+                type: item.type, 
+                status: item.isColumnHidden // Used 'item.isColumnHidden' as per your original code
+            };
+            
             initialData.columns.push(newColObj);
-    
+
             // 🔥 REUSABLE CALL 1: Get editor/formatter config
             const config = getColumnDefinition(newColObj);
-            
+
             table.addColumn({
                 title: `${item.name} (${item.mapping})`,
                 field: item.name,
                 editor: config.editor,
                 editorParams: config.editorParams,
-                formatter: config.formatter,     // Reused logic
-                mutator: config.mutator,         // Reused logic
+                formatter: config.formatter,
+                mutator: config.mutator,
                 hozAlign: config.hozAlign,
                 headerHozAlign: config.hozAlign,
-                headerSort: true,
+                headerSort: false,
                 resizable: true,
-                // 🔥 REUSABLE CALL 2: Get complex title formatter,
-                titleFormatter: createTitleFormatter(colId,item.name, item.mapping, item.type, rebuildTable,item.isColumnActive ),
-                headerMenu:hideColOption(rebuildTable)
+                // 🔥 REUSABLE CALL 2: Get complex title formatter
+                titleFormatter: createTitleFormatter(colId, item.name, item.mapping, item.type, rebuildTable, item.isColumnActive),
+                headerMenu: hideColOption(rebuildTable)
             });
             
-            table.getData().forEach(r => r[item.name] = "");
-            table.replaceData(table.getData());
             Toastify({ text: `Column "${item.name}" added`, duration: 3000, gravity: "top", position: "right", backgroundColor: "#1e90ff" }).showToast();
-        })
-
-    }
+        }
+    });
+}
     const importTemplateBtn = document.getElementById('import-template');
     importTemplateBtn.addEventListener('click', function () {
         const input = document.createElement("input");
@@ -1118,18 +1139,26 @@ function importRowData(rows) {
     // table.getData().forEach(r => r[colName] = "");
     // console.log(table.getData());
     // table.replaceData(table.getData());
-    // rebuildTable()
+    rebuildTable()
 
 }
 function saveCurrentTableData(){
     const rows = table.getData();
-    console.log(rows);
+    // console.log(rows);
     table.updateData()
     // initialData.rows.push(rows)
     // rebuildTable()
     
 }
+//undo button
+document.getElementById("history-undo").addEventListener("click", function(){
+  table.undo();
+});
 
+//redo button
+document.getElementById("history-redo").addEventListener("click", function(){
+   table.redo();
+});
 
 // end DOMContentLoaded
 });

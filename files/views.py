@@ -133,7 +133,7 @@ def file_edit(request, pk=None, parent_id=None):
             mainfile_id = file.pk
     elif parent_id:
         mainfile_id = parent_id  # new child with parent
-
+    
     # Pass parent columns if child
     parent_columns = []
     parent_column_values = {}
@@ -148,7 +148,6 @@ def file_edit(request, pk=None, parent_id=None):
 
     # Pass data to template
     data_json = json.dumps(file.data if file else {"columns": [], "rows": []})
-
 
     if file:
         if (file.file_type or "").lower() == "child" and file.parent:
@@ -168,6 +167,7 @@ def file_edit(request, pk=None, parent_id=None):
                 'parent_columns': parent_columns,
                 'parent_column_values': parent_column_values,
                 'parent_rows': parent_rows,
+                'parent_file_data':file.parent
             })
         else:
             return render(request, 'files/type/main_file_edit.html', {
